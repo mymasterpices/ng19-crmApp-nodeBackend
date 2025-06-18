@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-
+uploads/
 # Environment files
 .env
 # Angular build output
