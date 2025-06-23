@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Chat = require('../models/chatSchema');
-// const { verifyToken } = require('../middleware/jwt');
+const { verifyToken } = require('../middleware/jwt');
 
 
 // Get chat by customer ID
-router.get('/get/:customerId', async (req, res) => {
+router.get('/get/:customerId', verifyToken, async (req, res) => {
     try {
         const { customerId } = req.params;
         const chat = await Chat.findOne({ customerId }).populate('customerId', 'name mobile productName price seriousness');
@@ -22,7 +22,7 @@ router.get('/get/:customerId', async (req, res) => {
 });
 
 // Add a new message to the chat
-router.post('/add/:customerId', async (req, res) => {
+router.post('/add/:customerId', verifyToken, async (req, res) => {
     try {
         const { customerId } = req.params;
         const { message } = req.body;
@@ -45,7 +45,7 @@ router.post('/add/:customerId', async (req, res) => {
 });
 
 // Update a specific message inside a chat document
-router.put('/update/:customerId/:chatId', async (req, res) => {
+router.put('/update/:customerId/:chatId', verifyToken, async (req, res) => {
     try {
         const { customerId, chatId } = req.params;
         const { message } = req.body;
@@ -90,7 +90,7 @@ router.put('/update/:customerId/:chatId', async (req, res) => {
 
 
 //delete chat by chat ID
-router.delete('/delete/:customerId/:messageId', async (req, res) => {
+router.delete('/delete/:customerId/:messageId', verifyToken, async (req, res) => {
     try {
         const { customerId, messageId } = req.params;
 

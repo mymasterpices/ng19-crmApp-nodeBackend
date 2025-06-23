@@ -1,8 +1,13 @@
 const express = require('express');
-require('dotenv').config();
+const helmet = require('helmet');
 const path = require('path');
-const fs = require('fs');
 const cors = require('cors');
+const fs = require('fs');
+require('dotenv').config();
+
+// 2. App setup
+const app = express();
+const port = process.env.PORT || 3000;
 
 // Ensure uploads directory exists
 const uploadsPath = path.join(__dirname, 'uploads');
@@ -10,14 +15,13 @@ if (!fs.existsSync(uploadsPath)) {
     fs.mkdirSync(uploadsPath);
 }
 
-// 2. App setup
-const app = express();
-const port = process.env.PORT || 3000;
 
 // 3. Middleware
 app.use(cors());
+// app.use(helmet());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public/dist/browser'))); // Serve Angular frontend
+const serv_angular = 'public/dist/browser';
+app.use(express.static(path.join(__dirname, serv_angular))); // Serve Angular frontend
 app.use('/uploads', express.static('uploads'));
 
 
@@ -33,6 +37,13 @@ const ChatRoutes = require('./routes/chatRoutes');
 app.use('/api/auth', AuthRoutes);
 app.use('/api/customers', CustomerRoutes);
 app.use('/api/chat', ChatRoutes);
+
+// Wildcard route to serve Angular app
+app.get('/*splat', (req, res) => {
+    res.sendFile(path.join(__dirname, serv_angular));
+});
+
+
 
 // 6. Start server
 app.listen(port, () => {

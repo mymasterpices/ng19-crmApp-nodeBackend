@@ -25,7 +25,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 //add new customer
-router.post('/save', verifyToken, upload.single('productImage'), verifyToken, async (req, res) => {
+router.post('/save', upload.single('productImage'), verifyToken, async (req, res) => {
     try {
 
         const { name, mobile, productName, price, nextFollowUpDate, status, seriousness, conversation, salesperson } = req.body;
