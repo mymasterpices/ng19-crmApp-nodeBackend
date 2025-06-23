@@ -1,5 +1,4 @@
 const express = require('express');
-const helmet = require('helmet');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
@@ -18,9 +17,8 @@ if (!fs.existsSync(uploadsPath)) {
 
 // 3. Middleware
 app.use(cors());
-// app.use(helmet());
 app.use(express.json());
-const serv_angular = 'public/dist/browser';
+const serv_angular = 'public/dist/browser/';
 app.use(express.static(path.join(__dirname, serv_angular))); // Serve Angular frontend
 app.use('/uploads', express.static('uploads'));
 
@@ -39,7 +37,7 @@ app.use('/api/customers', CustomerRoutes);
 app.use('/api/chat', ChatRoutes);
 
 // Wildcard route to serve Angular app
-app.get('/*splat', (req, res) => {
+app.get('/*splat', async (req, res) => {
     res.sendFile(path.join(__dirname, serv_angular));
 });
 
