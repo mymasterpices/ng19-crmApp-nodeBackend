@@ -22,34 +22,24 @@ const soldSchema = new mongoose.Schema(
     address: {
       type: String,
     },
-    tag: {
-      type: String,
-    },
-    purity: {
-      type: String,
-    },
-    gold_wt: {
-      type: String,
-    },
-    dia_wt: {
-      type: String,
-    },
-    stn_wt: {
-      type: String,
-    },
-    amount: {
-      type: Number,
-    },
-    soldupload: {
-      type: String, // stores file path or filename
-    },
+    products: [
+      {
+        tag: { type: String, required: true },
+        purity: { type: String },
+        gold_wt: { type: String },
+        dia_wt: { type: String },
+        stn_wt: { type: String },
+        amount: { type: Number },
+        soldupload: { type: String }, // store file path or filename
+      },
+    ],
     sales_staff: {
       type: String,
     },
   },
   {
     timestamps: true,
-    imutable: true,
+    immutable: true,
   }
 );
 

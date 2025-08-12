@@ -2,18 +2,18 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
 const Sold = require("../models/soldSchema");
-const { verifyToken } = require("../middleware/jwt"); // make sure this exists
+const { verifyToken } = require("../middleware/jwt");
 
-// Create folder if not exists
-const fs = require("fs");
-const uploadPath = "uploads/sold";
+// Create uploads folder if not exists
+const uploadPath = path.join("uploads", "sold");
 if (!fs.existsSync(uploadPath)) {
   fs.mkdirSync(uploadPath, { recursive: true });
 }
 
-// Configure Multer
+// Multer storage config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadPath);
@@ -25,65 +25,56 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// @route POST /api/sold/save
-// @desc Add new sold customer with file upload
-router.post(
-  "/save",
-  verifyToken,
-  upload.single("soldupload"), // 👈 this field name MUST match FormData field in Angular
-  async (req, res) => {
-    try {
-      const {
-        full_name,
-        mobile,
-        email,
-        birthday,
-        anniversary,
-        address,
-        tag,
-        purity,
-        gold_wt,
-        dia_wt,
-        stn_wt,
-        amount,
-      } = req.body;
+// POST - Create Sold Entry
+router.post("/save", verifyToken, upload.any(), async (req, res) => {
+  try {
+    // console.log("REQ.BODY:", req.body);
+    // console.log("REQ.FILES:", req.files);
 
-      if (!req.file) {
-        return res.status(400).json({ message: "Please upload an image file" });
-      }
+    const { full_name, mobile, email, birthday, anniversary, address } =
+      req.body;
 
-      const newSold = new Sold({
-        full_name,
-        mobile,
-        email,
-        birthday,
-        anniversary,
-        address,
-        tag,
-        purity,
-        gold_wt,
-        dia_wt,
-        stn_wt,
-        amount,
-        soldupload: `${uploadPath}/${req.file.filename}`.replace(/\\/g, "/"),
+    let products = [];
+    if (req.body.products) {
+      products = JSON.parse(req.body.products);
 
-        sales_staff: req.user.username, // assuming `verifyToken` sets `req.user`
+      // Attach file paths to products
+      req.files.forEach((file) => {
+        const match = file.fieldname.match(/^products\[(\d+)\]\[soldupload\]$/);
+        if (match) {
+          const index = parseInt(match[1], 10);
+          if (products[index]) {
+            products[index].soldupload =
+              `${uploadPath}/${file.filename}`.replace(/\\/g, "/");
+          }
+        }
       });
-
-      await newSold.save();
-
-      res.status(201).json({
-        message: "Sold entry saved successfully",
-        customer: newSold,
-      });
-    } catch (err) {
-      console.error("Error saving sold entry:", err);
-      res.status(500).json({ message: "Server error" });
     }
-  }
-);
 
-// @route GET /api/sold/get
+    const newSold = new Sold({
+      full_name,
+      mobile,
+      email,
+      birthday,
+      anniversary,
+      address,
+      products,
+      sales_staff: req.user.username,
+    });
+
+    await newSold.save();
+
+    res.status(201).json({
+      message: "Sold entry saved successfully",
+      customer: newSold,
+    });
+  } catch (err) {
+    console.error("Error saving sold entry:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET - All Sold Entries
 router.get("/get", verifyToken, async (req, res) => {
   try {
     const customers = await Sold.find(req.query);
@@ -97,10 +88,10 @@ router.get("/get", verifyToken, async (req, res) => {
   }
 });
 
+// GET - Single Sold Entry
 router.get("/view/:id", verifyToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const customer = await Sold.findById(id);
+    const customer = await Sold.findById(req.params.id);
     if (!customer) {
       return res.status(404).json({ message: "Sold customer not found" });
     }
@@ -111,84 +102,50 @@ router.get("/view/:id", verifyToken, async (req, res) => {
   }
 });
 
-
-
-//update a customer
-router.put(
-  "/update/:id",
-  upload.single("soldupload"),
-  verifyToken,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      // Check if file is uploaded
-      if (req.file) {
-        req.body.soldupload = `uploads/sold/${req.file.filename}`;
-      }
-      // Check if customer exists
-      const customer = await Sold.findById(id);
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
-      }
-
-      // Update customer
-      const updatedCustomer = await Sold.findByIdAndUpdate(id, req.body, {
-        new: true,
-      });
-      if (!updatedCustomer) {
-        return res.status(400).json({ message: "Failed to update customer" });
-      }
-
-      res.status(200).json({
-        message: "Customer updated successfully",
-        customer: updatedCustomer,
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Server error" });
+// PUT - Update Sold Entry
+router.put("/update/:id", verifyToken, upload.any(), async (req, res) => {
+  try {
+    const customer = await Sold.findById(req.params.id);
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
     }
+
+    let updatedProducts = [];
+    if (req.body.products) {
+      updatedProducts = JSON.parse(req.body.products);
+
+      req.files.forEach((file) => {
+        const match = file.fieldname.match(/^products\[(\d+)\]\[soldupload\]$/);
+        if (match) {
+          const index = parseInt(match[1], 10);
+          if (updatedProducts[index]) {
+            updatedProducts[index].soldupload =
+              `${uploadPath}/${file.filename}`.replace(/\\/g, "/");
+          }
+        }
+      });
+    }
+
+    customer.full_name = req.body.full_name || customer.full_name;
+    customer.mobile = req.body.mobile || customer.mobile;
+    customer.email = req.body.email || customer.email;
+    customer.birthday = req.body.birthday || customer.birthday;
+    customer.anniversary = req.body.anniversary || customer.anniversary;
+    customer.address = req.body.address || customer.address;
+    if (updatedProducts.length > 0) {
+      customer.products = updatedProducts;
+    }
+
+    await customer.save();
+
+    res.status(200).json({
+      message: "Customer updated successfully",
+      customer,
+    });
+  } catch (error) {
+    console.error("Error updating sold entry:", error);
+    res.status(500).json({ message: "Server error" });
   }
-);
-
-//get customer by name
-// router.get("/search/:name", verifyToken, async (req, res) => {
-//   try {
-//     const { name } = req.params;
-
-//     // Find customer by name
-//     const customers = await Customer.find({ name: new RegExp(name, "i") });
-//     if (!customers || customers.length === 0) {
-//       return res
-//         .status(404)
-//         .json({ message: "No customers found with that name" });
-//     }
-
-//     res.status(200).json(customers);
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// });
-
-// View a customers
-// router.get("/view/:id", verifyToken, async (req, res) => {
-//   try {
-//     const { id } = req.params;
-
-//     console.log(id);
-
-//     // return;
-
-//     const customer = await Customer.findById(id);
-//     if (!customer) {
-//       return res.status(404).json({ message: "Customer not found" });
-//     }
-
-//     res.status(200).json(customer);
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// });
+});
 
 module.exports = router;
