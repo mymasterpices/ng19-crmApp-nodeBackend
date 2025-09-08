@@ -223,30 +223,30 @@ router.get("/view/:id", verifyToken, async (req, res) => {
   }
 });
 
-// GET route to fetch customers with today's follow-up date and cold status
+// GET route to fetch customers with today's follow-up date and Cold/Open status
 router.get("/followup/today", async (req, res) => {
   try {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    today.setHours(0, 0, 0, 0); // Start of today (00:00:00)
 
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow (00:00:00)
 
-    const { salesperson } = req.query; // ✅ Get salesperson from query
+    const { salesperson } = req.query; // Optional filter (?salesperson=Anita)
 
     const filter = {
-      status: { $in: ["Cold", "Open"] },
+      status: { $in: ["Cold", "Open"] }, // ✅ Only Cold or Open
       nextFollowUpDate: {
-        $gte: today, // Today or after today (start of today)
-        $lt: tomorrow, // Before tomorrow (end of today)
+        $gte: today, // >= today 00:00
+        $lt: tomorrow, // < tomorrow 00:00 → ensures SAME day only
       },
     };
 
     if (salesperson) {
-      filter.salesperson = salesperson; // ✅ Apply salesperson filter if passed
+      filter.salesperson = salesperson;
     }
 
-    const customers = await Customer.find(filter);
+    const customers = await Customer.find(filter).sort({ updatedAt: -1 });
 
     res.status(200).json(customers);
   } catch (error) {
@@ -255,21 +255,22 @@ router.get("/followup/today", async (req, res) => {
   }
 });
 
-// GET route to fetch customers with missed follow-up dates
+// ✅ Get customers with missed follow-ups
 router.get("/followup/missed", async (req, res) => {
   try {
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of today (00:00)
+
     const { salesperson } = req.query;
 
-    today.setHours(0, 0, 0, 0); // Set time to start of today
-
+    // Filter: status Cold/Open AND nextFollowUpDate < today
     const filter = {
       status: { $in: ["Cold", "Open"] },
       nextFollowUpDate: { $lt: today },
     };
 
     if (salesperson) {
-      filter.salesperson = salesperson; // ✅ Apply salesperson filter if provided
+      filter.salesperson = salesperson; // Optional filter by salesperson
     }
 
     const customers = await Customer.find(filter);
