@@ -223,30 +223,30 @@ router.get("/view/:id", verifyToken, async (req, res) => {
   }
 });
 
-// GET route to fetch customers with today's follow-up date and Cold/Open status
+// GET route to fetch customers with today's follow-up date and cold status
 router.get("/followup/today", async (req, res) => {
   try {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today (00:00:00)
+    today.setHours(0, 0, 0, 0); // Start of today
 
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow (00:00:00)
+    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
 
-    const { salesperson } = req.query; // Optional filter (?salesperson=Anita)
+    const { salesperson } = req.query; // ✅ Get salesperson from query
 
     const filter = {
-      status: { $in: ["Cold", "Open"] }, // ✅ Only Cold or Open
+      status: { $in: ["Cold", "Open"] },
       nextFollowUpDate: {
-        $gte: today, // >= today 00:00
-        $lt: tomorrow, // < tomorrow 00:00 → ensures SAME day only
+        $gte: today, // Today or after today (start of today)
+        $lt: tomorrow, // Before tomorrow (end of today)
       },
     };
 
     if (salesperson) {
-      filter.salesperson = salesperson;
+      filter.salesperson = salesperson; // ✅ Apply salesperson filter if passed
     }
 
-    const customers = await Customer.find(filter).sort({ updatedAt: -1 });
+    const customers = await Customer.find(filter);
 
     res.status(200).json(customers);
   } catch (error) {
@@ -255,22 +255,21 @@ router.get("/followup/today", async (req, res) => {
   }
 });
 
-// ✅ Get customers with missed follow-ups
+// GET route to fetch customers with missed follow-up dates
 router.get("/followup/missed", async (req, res) => {
   try {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to start of today (00:00)
-
     const { salesperson } = req.query;
 
-    // Filter: status Cold/Open AND nextFollowUpDate < today
+    today.setHours(0, 0, 0, 0); // Set time to start of today
+
     const filter = {
       status: { $in: ["Cold", "Open"] },
       nextFollowUpDate: { $lt: today },
     };
 
     if (salesperson) {
-      filter.salesperson = salesperson; // Optional filter by salesperson
+      filter.salesperson = salesperson; // ✅ Apply salesperson filter if provided
     }
 
     const customers = await Customer.find(filter);
