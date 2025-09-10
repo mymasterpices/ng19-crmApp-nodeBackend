@@ -7,7 +7,7 @@ const Customer = require("../models/customerSchema");
 const Chat = require("../models/chatSchema");
 const { verifyToken } = require("../middleware/jwt");
 
-// Storage configuration for multer
+// --------------------- Multer Storage ---------------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -16,7 +16,6 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + "-" + file.originalname);
   },
 });
-
 const upload = multer({ storage });
 
 // --------------------- SAVE CUSTOMER ---------------------
@@ -41,10 +40,10 @@ router.post(
       const firstChatCo = req.body.conversation;
 
       if (!req.file) {
-        return res.status(400).json({ message: "Please upload a image file" });
+        return res.status(400).json({ message: "Please upload an image file" });
       }
 
-      // Check if customer already exists by mobile
+      // Check if customer already exists
       const existingCustomer = await Customer.findOne({ mobile });
       if (existingCustomer) {
         return res
@@ -65,7 +64,8 @@ router.post(
         mobile,
         productName,
         price,
-        nextFollowUpDate, // save as sent
+        // ✅ Save exactly what Angular sends
+        nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : null,
         status: flatStatus,
         seriousness: flatSeriousness,
         conversation,
@@ -85,9 +85,7 @@ router.post(
             },
           ],
         });
-
         await chat.save();
-        console.log("Chat created:", chat);
       }
 
       res.status(201).json({
@@ -119,7 +117,6 @@ router.get("/get", verifyToken, async (req, res) => {
 router.delete("/delete/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
-
     const customer = await Customer.findById(id);
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
@@ -137,9 +134,8 @@ router.delete("/delete/:id", verifyToken, async (req, res) => {
           console.error(err);
         }
       }
-
-      console.log("Chat deleted for customer:", id);
     }
+
     res.status(200).json({
       message: "Customer deleted successfully",
       customer,
@@ -170,6 +166,11 @@ router.put(
         req.body.seriousness = req.body.seriousness.name;
       }
 
+      // ✅ Preserve incoming Angular date with timezone
+      if (req.body.nextFollowUpDate) {
+        req.body.nextFollowUpDate = new Date(req.body.nextFollowUpDate);
+      }
+
       const customer = await Customer.findById(id);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
@@ -197,14 +198,12 @@ router.put(
 router.get("/search/:name", verifyToken, async (req, res) => {
   try {
     const { name } = req.params;
-
     const customers = await Customer.find({ name: new RegExp(name, "i") });
     if (!customers || customers.length === 0) {
       return res
         .status(404)
         .json({ message: "No customers found with that name" });
     }
-
     res.status(200).json(customers);
   } catch (error) {
     console.error(error);
@@ -230,10 +229,15 @@ router.get("/view/:id", verifyToken, async (req, res) => {
 // --------------------- FOLLOW-UP TODAY ---------------------
 router.get("/followup/today", async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    const now = new Date();
+
+    // Local midnight (IST in this example)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1
+    );
 
     const { salesperson } = req.query;
 
@@ -257,13 +261,16 @@ router.get("/followup/today", async (req, res) => {
 // --------------------- FOLLOW-UP MISSED ---------------------
 router.get("/followup/missed", async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+
+    // Local midnight (server local time zone)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const { salesperson } = req.query;
 
     const filter = {
       status: { $in: ["Cold", "Open"] },
+      // Anything strictly before today (local date) is "missed"
       nextFollowUpDate: { $lt: today },
     };
 
