@@ -226,24 +226,29 @@ router.get("/view/:id", verifyToken, async (req, res) => {
 // GET route to fetch customers with today's follow-up date and cold status
 router.get("/followup/today", async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    // Calculate IST midnight
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const utcMidnight = new Date(now.getTime() + istOffset);
+    utcMidnight.setHours(0, 0, 0, 0);
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+    const startOfTodayIst = new Date(utcMidnight.getTime() - istOffset);
+    const startOfTomorrowIst = new Date(
+      startOfTodayIst.getTime() + 24 * 60 * 60 * 1000
+    );
 
-    const { salesperson } = req.query; // ✅ Get salesperson from query
+    const { salesperson } = req.query;
 
     const filter = {
       status: { $in: ["Cold", "Open"] },
       nextFollowUpDate: {
-        $gte: today, // Today or after today (start of today)
-        $lt: tomorrow, // Before tomorrow (end of today)
+        $gte: startOfTodayIst,
+        $lt: startOfTomorrowIst,
       },
     };
 
     if (salesperson) {
-      filter.salesperson = salesperson; // ✅ Apply salesperson filter if passed
+      filter.salesperson = salesperson;
     }
 
     const customers = await Customer.find(filter);
@@ -255,21 +260,26 @@ router.get("/followup/today", async (req, res) => {
   }
 });
 
+//
 // GET route to fetch customers with missed follow-up dates
 router.get("/followup/missed", async (req, res) => {
   try {
-    const today = new Date();
-    const { salesperson } = req.query;
+    // Calculate IST midnight for today
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const utcMidnight = new Date(now.getTime() + istOffset);
+    utcMidnight.setHours(0, 0, 0, 0);
+    const startOfTodayIst = new Date(utcMidnight.getTime() - istOffset);
 
-    today.setHours(0, 0, 0, 0); // Set time to start of today
+    const { salesperson } = req.query;
 
     const filter = {
       status: { $in: ["Cold", "Open"] },
-      nextFollowUpDate: { $lt: today },
+      nextFollowUpDate: { $lt: startOfTodayIst },
     };
 
     if (salesperson) {
-      filter.salesperson = salesperson; // ✅ Apply salesperson filter if provided
+      filter.salesperson = salesperson;
     }
 
     const customers = await Customer.find(filter);
