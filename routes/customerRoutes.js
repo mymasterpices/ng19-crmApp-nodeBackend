@@ -7,7 +7,9 @@ const Customer = require("../models/customerSchema");
 const Chat = require("../models/chatSchema");
 const { verifyToken } = require("../middleware/jwt");
 
-// --------------------- Multer Storage ---------------------
+const getTodayDateISO = require("../utils/getTodayDate");
+
+// Storage configuration for multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -16,9 +18,10 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + "-" + file.originalname);
   },
 });
+
 const upload = multer({ storage });
 
-// --------------------- SAVE CUSTOMER ---------------------
+//add new customer
 router.post(
   "/save",
   upload.single("productImage"),
@@ -36,14 +39,13 @@ router.post(
         conversation,
         salesperson,
       } = req.body;
-
       const firstChatCo = req.body.conversation;
 
       if (!req.file) {
-        return res.status(400).json({ message: "Please upload an image file" });
+        return res.status(400).json({ message: "Please upload a image file" });
       }
 
-      // Check if customer already exists
+      // Check if customer already exists by mobile
       const existingCustomer = await Customer.findOne({ mobile });
       if (existingCustomer) {
         return res
@@ -51,30 +53,20 @@ router.post(
           .json({ message: "Customer with this mobile number already exists" });
       }
 
-      // Flatten status/seriousness if object
-      const flatStatus =
-        typeof status === "object" && status !== null ? status.name : status;
-      const flatSeriousness =
-        typeof seriousness === "object" && seriousness !== null
-          ? seriousness.name
-          : seriousness;
-
+      // Create and save new customer
       const newCustomer = new Customer({
         name,
         mobile,
         productName,
         price,
-        // ✅ Save exactly what Angular sends
-        nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : null,
-        status: flatStatus,
-        seriousness: flatSeriousness,
+        nextFollowUpDate,
+        status,
+        seriousness,
         conversation,
         salesperson,
         productImage: `uploads/${req.file.filename}`,
       });
-
       const savedCustomer = await newCustomer.save();
-
       if (savedCustomer) {
         const chat = new Chat({
           customerId: savedCustomer._id,
@@ -85,7 +77,9 @@ router.post(
             },
           ],
         });
+
         await chat.save();
+        console.log("Chat created:", chat);
       }
 
       res.status(201).json({
@@ -99,7 +93,7 @@ router.post(
   }
 );
 
-// --------------------- GET ALL CUSTOMERS ---------------------
+//get all customers
 router.get("/get", verifyToken, async (req, res) => {
   try {
     const customers = await Customer.find(req.query);
@@ -113,19 +107,23 @@ router.get("/get", verifyToken, async (req, res) => {
   }
 });
 
-// --------------------- DELETE CUSTOMER ---------------------
+//delete a customer
 router.delete("/delete/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Check if customer exists
     const customer = await Customer.findById(id);
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
 
+    // Delete customer
     const deletedCustomer = await Customer.findByIdAndDelete(id);
     if (deletedCustomer) {
+      // Also delete associated chat
       await Chat.deleteOne({ customerId: id });
-
+      //delete the image
       const imagePath = deletedCustomer.productImage;
       if (imagePath) {
         try {
@@ -134,8 +132,9 @@ router.delete("/delete/:id", verifyToken, async (req, res) => {
           console.error(err);
         }
       }
-    }
 
+      console.log("Chat deleted for customer:", id);
+    }
     res.status(200).json({
       message: "Customer deleted successfully",
       customer,
@@ -146,7 +145,7 @@ router.delete("/delete/:id", verifyToken, async (req, res) => {
   }
 });
 
-// --------------------- UPDATE CUSTOMER ---------------------
+//update a customer
 router.put(
   "/update/:id",
   upload.single("productImage"),
@@ -154,28 +153,17 @@ router.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-
+      // Check if file is uploaded
       if (req.file) {
         req.body.productImage = `uploads/${req.file.filename}`;
       }
-
-      if (req.body.status && typeof req.body.status === "object") {
-        req.body.status = req.body.status.name;
-      }
-      if (req.body.seriousness && typeof req.body.seriousness === "object") {
-        req.body.seriousness = req.body.seriousness.name;
-      }
-
-      // ✅ Preserve incoming Angular date with timezone
-      if (req.body.nextFollowUpDate) {
-        req.body.nextFollowUpDate = new Date(req.body.nextFollowUpDate);
-      }
-
+      // Check if customer exists
       const customer = await Customer.findById(id);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
 
+      // Update customer
       const updatedCustomer = await Customer.findByIdAndUpdate(id, req.body, {
         new: true,
       });
@@ -194,16 +182,19 @@ router.put(
   }
 );
 
-// --------------------- SEARCH BY NAME ---------------------
+//get customer by name
 router.get("/search/:name", verifyToken, async (req, res) => {
   try {
     const { name } = req.params;
+
+    // Find customer by name
     const customers = await Customer.find({ name: new RegExp(name, "i") });
     if (!customers || customers.length === 0) {
       return res
         .status(404)
         .json({ message: "No customers found with that name" });
     }
+
     res.status(200).json(customers);
   } catch (error) {
     console.error(error);
@@ -211,14 +202,20 @@ router.get("/search/:name", verifyToken, async (req, res) => {
   }
 });
 
-// --------------------- VIEW CUSTOMER ---------------------
+// View a customers
 router.get("/view/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
+
+    console.log(id);
+
+    // return;
+
     const customer = await Customer.findById(id);
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
     }
+
     res.status(200).json(customer);
   } catch (error) {
     console.error(error);
@@ -226,31 +223,31 @@ router.get("/view/:id", verifyToken, async (req, res) => {
   }
 });
 
-// --------------------- FOLLOW-UP TODAY ---------------------
+// GET route to fetch customers with today's follow-up date and cold status
 router.get("/followup/today", async (req, res) => {
   try {
-    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
 
-    // Local midnight (IST in this example)
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1
-    );
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
 
-    const { salesperson } = req.query;
+    const { salesperson } = req.query; // ✅ Get salesperson from query
 
     const filter = {
       status: { $in: ["Cold", "Open"] },
-      nextFollowUpDate: { $gte: today, $lt: tomorrow },
+      nextFollowUpDate: {
+        $gte: today, // Today or after today (start of today)
+        $lt: tomorrow, // Before tomorrow (end of today)
+      },
     };
 
     if (salesperson) {
-      filter.salesperson = salesperson;
+      filter.salesperson = salesperson; // ✅ Apply salesperson filter if passed
     }
 
     const customers = await Customer.find(filter);
+
     res.status(200).json(customers);
   } catch (error) {
     console.error("Error fetching today follow-up customers:", error);
@@ -258,27 +255,25 @@ router.get("/followup/today", async (req, res) => {
   }
 });
 
-// --------------------- FOLLOW-UP MISSED ---------------------
+// GET route to fetch customers with missed follow-up dates
 router.get("/followup/missed", async (req, res) => {
   try {
-    const now = new Date();
-
-    // Local midnight (server local time zone)
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
+    const today = new Date();
     const { salesperson } = req.query;
+
+    today.setHours(0, 0, 0, 0); // Set time to start of today
 
     const filter = {
       status: { $in: ["Cold", "Open"] },
-      // Anything strictly before today (local date) is "missed"
       nextFollowUpDate: { $lt: today },
     };
 
     if (salesperson) {
-      filter.salesperson = salesperson;
+      filter.salesperson = salesperson; // ✅ Apply salesperson filter if provided
     }
 
     const customers = await Customer.find(filter);
+
     res.status(200).json(customers);
   } catch (error) {
     console.error("Error fetching missed follow-up customers:", error);
