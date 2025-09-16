@@ -6,6 +6,7 @@ const fs = require("fs");
 const Customer = require("../models/customerSchema");
 const Chat = require("../models/chatSchema");
 const { verifyToken } = require("../middleware/jwt");
+const AuthorizeRoles = require("../middleware/checkRoles");
 
 const getTodayDateISO = require("../utils/getTodayDate");
 
@@ -108,42 +109,47 @@ router.get("/get", verifyToken, async (req, res) => {
 });
 
 //delete a customer
-router.delete("/delete/:id", verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
+router.delete(
+  "/delete/:id",
+  verifyToken,
+  AuthorizeRoles("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    // Check if customer exists
-    const customer = await Customer.findById(id);
-    if (!customer) {
-      return res.status(404).json({ message: "Customer not found" });
-    }
-
-    // Delete customer
-    const deletedCustomer = await Customer.findByIdAndDelete(id);
-    if (deletedCustomer) {
-      // Also delete associated chat
-      await Chat.deleteOne({ customerId: id });
-      //delete the image
-      const imagePath = deletedCustomer.productImage;
-      if (imagePath) {
-        try {
-          fs.unlinkSync(imagePath);
-        } catch (err) {
-          console.error(err);
-        }
+      // Check if customer exists
+      const customer = await Customer.findById(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
       }
 
-      console.log("Chat deleted for customer:", id);
+      // Delete customer
+      const deletedCustomer = await Customer.findByIdAndDelete(id);
+      if (deletedCustomer) {
+        // Also delete associated chat
+        await Chat.deleteOne({ customerId: id });
+        //delete the image
+        const imagePath = deletedCustomer.productImage;
+        if (imagePath) {
+          try {
+            fs.unlinkSync(imagePath);
+          } catch (err) {
+            console.error(err);
+          }
+        }
+
+        console.log("Chat deleted for customer:", id);
+      }
+      res.status(200).json({
+        message: "Customer deleted successfully",
+        customer,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server error" });
     }
-    res.status(200).json({
-      message: "Customer deleted successfully",
-      customer,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
   }
-});
+);
 
 //update a customer
 router.put(

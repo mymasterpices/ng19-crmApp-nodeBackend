@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const User = require("../models/userSchema");
-const authorizeRoles = require("../middleware/roleCheckMiddleware");
+const authorizeRoles = require("../middleware/checkRoles");
 // 1. Import necessary modules
 const bcrypt = require("bcryptjs");
 const { verifyToken, generateToken } = require("../middleware/jwt");
