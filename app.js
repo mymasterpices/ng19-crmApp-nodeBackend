@@ -29,11 +29,19 @@ const AuthRoutes = require("./routes/auth");
 const CustomerRoutes = require("./routes/customerRoutes");
 const ChatRoutes = require("./routes/chatRoutes");
 const SoldRoutes = require("./routes/soldRoutes");
+const searchProductRoutes = require("./routes/searchProductRoutes");
+const VideoRoutes = require("./routes/videosRoutes");
+const SharedLink = require("./routes/shareLinkRoutes");
+const favList = require("./routes/favoriteListRoutes");
 
 app.use("/api/auth", AuthRoutes);
 app.use("/api/customers", CustomerRoutes);
 app.use("/api/chat", ChatRoutes);
 app.use("/api/sold", SoldRoutes);
+app.use("/api/products", searchProductRoutes);
+app.use("/api/videos", VideoRoutes);
+app.use("/api/videos/shared", SharedLink);
+app.use("/api/videos/favorite", favList);
 
 // Wildcard route to serve Angular app
 app.get("/*splat", async (req, res) => {

@@ -128,6 +128,8 @@ router.get("/profile", verifyToken, async (req, res) => {
   }
 });
 
+
+//update /change password
 router.patch("/update-password", verifyToken, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -146,16 +148,14 @@ router.patch("/update-password", verifyToken, async (req, res) => {
 
 //change user password by
 router.patch(
-  "/password/:id",
+  "/password",
   verifyToken,
   authorizeRoles("admin"),
   async (req, res) => {
     try {
-      const userId = req.params.id;
+      const { password, userid } = req.body;
 
-      const { password } = req.body;
-
-      const user = await User.findById(userId);
+      const user = await User.findById(userid);
       if (!user) return res.status(404).json({ error: "User not found" });
 
       user.password = await bcrypt.hash(password, 10);

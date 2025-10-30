@@ -97,7 +97,9 @@ router.post(
 //get all customers
 router.get("/get", verifyToken, async (req, res) => {
   try {
-    const customers = await Customer.find(req.query);
+    const customers = await Customer.find(req.query).sort({
+      createdAt: -1
+    });
     if (!customers || customers.length === 0) {
       return res.status(404).json({ message: "No customers found" });
     }

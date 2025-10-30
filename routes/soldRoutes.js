@@ -77,7 +77,9 @@ router.post("/save", verifyToken, upload.any(), async (req, res) => {
 // GET - All Sold Entries
 router.get("/get", verifyToken, async (req, res) => {
   try {
-    const customers = await Sold.find(req.query);
+    const customers = await Sold.find(req.query).sort({
+      createdAt: -1,
+    });
 
     if (!customers.length) {
       return res.status(404).json({ message: "No sold customers found" });
