@@ -33,6 +33,7 @@ const searchProductRoutes = require("./routes/searchProductRoutes");
 const VideoRoutes = require("./routes/videosRoutes");
 const SharedLink = require("./routes/shareLinkRoutes");
 const favList = require("./routes/favoriteListRoutes");
+const FootfallRoutes = require("./routes/footfallRoutes");
 
 app.use("/api/auth", AuthRoutes);
 app.use("/api/customers", CustomerRoutes);
@@ -42,6 +43,7 @@ app.use("/api/products", searchProductRoutes);
 app.use("/api/videos", VideoRoutes);
 app.use("/api/videos/shared", SharedLink);
 app.use("/api/videos/favorite", favList);
+app.use("/api/footfall", FootfallRoutes);
 
 // Wildcard route to serve Angular app
 app.get("/*splat", async (req, res) => {
