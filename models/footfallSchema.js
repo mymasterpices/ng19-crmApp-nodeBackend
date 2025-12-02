@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+
 const footEntrySchema = new mongoose.Schema({
+  _id: { type: mongoose.Schema.Types.ObjectId },
   footfall: { type: Number, required: true },
   conversion: { type: Number, required: true },
-  timestamp: { type: Date, default: Date.now, immutable: true },
+  timestamp: { type: Date, required: true },
 });
 
 const footfallSchema = new mongoose.Schema({
@@ -11,5 +13,4 @@ const footfallSchema = new mongoose.Schema({
   foot_entry: { type: [footEntrySchema], default: [] },
 });
 
-// Check if model exists first
 module.exports = mongoose.model("Footfall", footfallSchema);

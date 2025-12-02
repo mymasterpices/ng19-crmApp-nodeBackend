@@ -11,6 +11,11 @@ const userSchema = new moongoose.Schema(
       type: String,
       required: true,
     },
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
+    },
     role: {
       type: String,
       enum: ["user", "admin"],

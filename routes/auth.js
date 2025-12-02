@@ -50,27 +50,41 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
+
     // Check if user exists
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
+
+    // Check if user is active
+    if (user.status !== "active") {
+      return res.status(403).json({ message: "User account is inactive" });
+    }
+
     // Check password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
-    // Generate token (for simplicity, we are not using JWT here)
+
+    // Token payload
     const payload = {
       userId: user._id,
       username: user.username,
       role: user.role,
+      status: user.status,
     };
-    // sign the token with a secret key
+
+    // Generate token
     const token = generateToken(payload);
-    res.status(200).json({ message: "Login successful", token });
+
+    res.status(200).json({
+      message: "Login successful",
+      token,
+    });
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -148,6 +162,27 @@ router.patch("/update-password", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+//change user status by admin
+router.patch(
+  "/status",
+  verifyToken,
+  authorizeRoles("admin"),
+  async (req, res) => {
+    try {
+      const { status, id } = req.body;
+      const user = await User.findById(id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      user.status = status;
+      await user.save();
+      res.status(200).json({ message: "User status updated successfully" });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Server error" });
+    }
+  }
+);
 
 //change user password by
 router.patch(
