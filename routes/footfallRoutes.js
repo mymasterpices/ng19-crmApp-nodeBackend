@@ -11,7 +11,7 @@ const upload = multer({ dest: "uploads/csv" });
 // POST: create new user or append foot entries
 router.post("/save/:userId", async (req, res) => {
   const { userId } = req.params;
-  const { name, username, foot_entry } = req.body;
+  const { username, foot_entry, pc } = req.body;
 
   try {
     if (!foot_entry || !Array.isArray(foot_entry) || foot_entry.length === 0) {
@@ -29,6 +29,7 @@ router.post("/save/:userId", async (req, res) => {
         foot_entry: foot_entry.map((entry) => ({
           footfall: entry.footfall,
           conversion: entry.conversion,
+          pc: pc || null,
           timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
         })),
       });
@@ -171,6 +172,7 @@ router.post("/import", upload.single("file"), async (req, res) => {
 
             const footfall = Number(row.footfall) || 0;
             const conversion = Number(row.conversion) || 0;
+            const pc = String(row.pc) || null;
             const tsRaw = row.timestamp;
 
             if (!tsRaw) return; // skip if no timestamp
@@ -188,6 +190,7 @@ router.post("/import", upload.single("file"), async (req, res) => {
             userGroups[user_id].entries.push({
               footfall,
               conversion,
+              pc,
               timestamp: ts,
               // if later you store entry_id as well, you can add:
               // entry_id: row.entry_id
@@ -226,6 +229,7 @@ router.post("/import", upload.single("file"), async (req, res) => {
         userDoc.foot_entry.push({
           footfall: entry.footfall,
           conversion: entry.conversion,
+          pc: entry.pc,
           timestamp: entry.timestamp,
         });
 
