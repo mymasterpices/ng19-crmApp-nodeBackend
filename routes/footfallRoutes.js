@@ -132,7 +132,36 @@ router.delete("/delete/:userId/:entryId", async (req, res) => {
   }
 });
 
+// Helper: parse Excel-ish dates like "1/2/2025", "13-02-2025" into UTC Date
+function parseExcelDateToUTC(raw) {
+  if (!raw) return null;
+  const str = String(raw).trim();
+  if (!str) return null;
+
+  // dd/mm/yyyy  (e.g. 1/2/2025)
+  let m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m.map(Number);
+    const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // dd-mm-yyyy  (e.g. 13-02-2025)
+  m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m.map(Number);
+    const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // Fallback: let JS try (ISO, etc.)
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+
+  return null; // unrecognized / bad
+}
 //bulk import foot entries for a user
+// bulk import foot entries for a user
 router.post("/import", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res
@@ -170,15 +199,37 @@ router.post("/import", upload.single("file"), async (req, res) => {
             lastUserId = user_id;
             lastUsername = username;
 
-            const footfall = Number(row.footfall) || 0;
-            const conversion = Number(row.conversion) || 0;
-            const pc = String(row.pc) || null;
-            const tsRaw = row.timestamp;
+            const rawFootfall = row.footfall;
+            const rawConversion = row.conversion;
 
-            if (!tsRaw) return; // skip if no timestamp
+            // If BOTH footfall & conversion are empty -> treat as "no data" row, skip
+            const hasFootfall =
+              rawFootfall !== undefined &&
+              rawFootfall !== null &&
+              String(rawFootfall).trim() !== "";
+            const hasConversion =
+              rawConversion !== undefined &&
+              rawConversion !== null &&
+              String(rawConversion).trim() !== "";
 
-            const ts = new Date(tsRaw);
-            if (isNaN(ts.getTime())) return; // bad date → skip
+            if (!hasFootfall && !hasConversion) {
+              // no numeric data at all → skip this row
+              return;
+            }
+
+            const footfall = hasFootfall ? Number(rawFootfall) || 0 : 0;
+            const conversion = hasConversion ? Number(rawConversion) || 0 : 0;
+
+            // pc as nullable string
+            let pc = row.pc;
+            if (pc === undefined || pc === null || String(pc).trim() === "") {
+              pc = null;
+            } else {
+              pc = String(pc).trim();
+            }
+
+            const ts = parseExcelDateToUTC(row.timestamp);
+            if (!ts) return; // bad / missing date → skip
 
             if (!userGroups[user_id]) {
               userGroups[user_id] = {
@@ -192,11 +243,9 @@ router.post("/import", upload.single("file"), async (req, res) => {
               conversion,
               pc,
               timestamp: ts,
-              // if later you store entry_id as well, you can add:
-              // entry_id: row.entry_id
             });
           } catch (e) {
-            console.error("Row parse error:", e);
+            console.error("Row parse error:", e, row);
           }
         })
         .on("end", () => resolve())
