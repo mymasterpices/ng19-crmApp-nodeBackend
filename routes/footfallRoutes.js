@@ -4,133 +4,159 @@ const multer = require("multer");
 const csv = require("csv-parser");
 const fs = require("fs");
 const Footfall = require("../models/footfallSchema"); // Your Footfall model
+const authorizeRoles = require("../middleware/checkRoles");
+const { verifyToken } = require("../middleware/jwt");
 
 // temp upload folder
 const upload = multer({ dest: "uploads/csv" });
 
 // POST: create new user or append foot entries
-router.post("/save/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const { username, foot_entry, pc } = req.body;
+router.post(
+  "/save/:userId",
+  verifyToken,
+  authorizeRoles("admin", "superadmin"),
+  async (req, res) => {
+    const { userId } = req.params;
+    const { username, foot_entry, pc } = req.body;
 
-  try {
-    if (!foot_entry || !Array.isArray(foot_entry) || foot_entry.length === 0) {
-      return res.status(400).json({ error: "foot_entry array is required" });
-    }
+    try {
+      if (
+        !foot_entry ||
+        !Array.isArray(foot_entry) ||
+        foot_entry.length === 0
+      ) {
+        return res.status(400).json({ error: "foot_entry array is required" });
+      }
 
-    // Check if user exists
-    let user = await Footfall.findOne({ user_id: userId });
+      // Check if user exists
+      let user = await Footfall.findOne({ user_id: userId });
 
-    if (!user) {
-      // Create new user with provided foot entries
-      user = new Footfall({
-        username: username || "unknown",
-        user_id: userId,
-        foot_entry: foot_entry.map((entry) => ({
-          footfall: entry.footfall,
-          conversion: entry.conversion,
-          pc: pc || null,
-          timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
-        })),
-      });
-    } else {
-      // User exists, append new foot entries
-      foot_entry.forEach((entry) => {
-        const entryDate = entry.timestamp
-          ? new Date(entry.timestamp)
-          : new Date();
-        if (entryDate <= new Date()) {
-          // prevent future timestamps
-          user.foot_entry.push({
+      if (!user) {
+        // Create new user with provided foot entries
+        user = new Footfall({
+          username: username || "unknown",
+          user_id: userId,
+          foot_entry: foot_entry.map((entry) => ({
             footfall: entry.footfall,
             conversion: entry.conversion,
-            timestamp: entryDate,
-          });
-        }
+            pc: pc || null,
+            timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
+          })),
+        });
+      } else {
+        // User exists, append new foot entries
+        foot_entry.forEach((entry) => {
+          const entryDate = entry.timestamp
+            ? new Date(entry.timestamp)
+            : new Date();
+          if (entryDate <= new Date()) {
+            // prevent future timestamps
+            user.foot_entry.push({
+              footfall: entry.footfall,
+              conversion: entry.conversion,
+              timestamp: entryDate,
+            });
+          }
+        });
+      }
+
+      await user.save();
+
+      return res.status(201).json({
+        message: "Foot entries saved successfully",
+        user,
       });
+    } catch (err) {
+      console.error("Error saving foot entries:", err);
+      return res.status(500).json({ error: "Server error" });
     }
-
-    await user.save();
-
-    return res.status(201).json({
-      message: "Foot entries saved successfully",
-      user,
-    });
-  } catch (err) {
-    console.error("Error saving foot entries:", err);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
+  },
+);
 
 // GET all users with foot entries
-router.get("/get", async (req, res) => {
-  try {
-    const query = req.query || {};
-    const users = await Footfall.find(query);
-    return res.status(200).json(users);
-  } catch (err) {
-    console.error("Error fetching users:", err);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
+router.get(
+  "/get",
+  verifyToken,
+  authorizeRoles("admin", "superadmin"),
+  async (req, res) => {
+    try {
+      const query = req.query || {};
+      const users = await Footfall.find(query);
+      return res.status(200).json(users);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 //Update the footfall data for a user
-router.patch("/update/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const { entryId, footfall, conversion } = req.body;
+router.patch(
+  "/update/:userId",
+  verifyToken,
+  authorizeRoles("admin", "superadmin"),
+  async (req, res) => {
+    const { userId } = req.params;
+    const { entryId, footfall, conversion } = req.body;
 
-  try {
-    const updatedUser = await Footfall.findOneAndUpdate(
-      {
-        user_id: userId,
-        "foot_entry._id": entryId,
-      },
-      {
-        $set: {
-          "foot_entry.$.footfall": footfall,
-          "foot_entry.$.conversion": conversion,
+    try {
+      const updatedUser = await Footfall.findOneAndUpdate(
+        {
+          user_id: userId,
+          "foot_entry._id": entryId,
         },
-      },
-      { new: true }
-    );
+        {
+          $set: {
+            "foot_entry.$.footfall": footfall,
+            "foot_entry.$.conversion": conversion,
+          },
+        },
+        { new: true },
+      );
 
-    if (!updatedUser) {
-      return res.status(404).json({ error: "User or entry not found" });
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User or entry not found" });
+      }
+
+      return res.status(200).json({
+        message: "Entry updated successfully",
+        user: updatedUser,
+      });
+    } catch (err) {
+      console.error("Error updating entry:", err);
+      return res.status(500).json({ error: "Server error" });
     }
-
-    return res.status(200).json({
-      message: "Entry updated successfully",
-      user: updatedUser,
-    });
-  } catch (err) {
-    console.error("Error updating entry:", err);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
+  },
+);
 
 //Delete a specific foot entry for a user
-router.delete("/delete/:userId/:entryId", async (req, res) => {
-  const { userId, entryId } = req.params;
-  try {
-    const updatedUser = await Footfall.findOneAndUpdate(
-      { user_id: userId },
-      { $pull: { foot_entry: { _id: entryId } } },
-      { new: true }
-    );
+router.delete(
+  "/delete/:userId/:entryId",
+  verifyToken,
+  authorizeRoles("admin", "superadmin"),
+  async (req, res) => {
+    const { userId, entryId } = req.params;
+    try {
+      const updatedUser = await Footfall.findOneAndUpdate(
+        { user_id: userId },
+        { $pull: { foot_entry: { _id: entryId } } },
+        { new: true },
+      );
 
-    if (!updatedUser) {
-      return res.status(404).json({ error: "User or entry not found" });
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User or entry not found" });
+      }
+
+      return res.status(200).json({
+        message: "Entry deleted successfully",
+        user: updatedUser,
+      });
+    } catch (err) {
+      console.error("Error deleting entry:", err);
+      return res.status(500).json({ error: "Server error" });
     }
-
-    return res.status(200).json({
-      message: "Entry deleted successfully",
-      user: updatedUser,
-    });
-  } catch (err) {
-    console.error("Error deleting entry:", err);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
+  },
+);
 
 // Helper: parse Excel-ish dates like "1/2/2025", "13-02-2025" into UTC Date
 function parseExcelDateToUTC(raw) {
@@ -160,157 +186,176 @@ function parseExcelDateToUTC(raw) {
 
   return null; // unrecognized / bad
 }
+
 //bulk import foot entries for a user
-// bulk import foot entries for a user
-router.post("/import", upload.single("file"), async (req, res) => {
-  if (!req.file) {
-    return res
-      .status(400)
-      .json({ error: "CSV file is required (field name: file)" });
-  }
+router.post(
+  "/import",
+  verifyToken,
+  authorizeRoles("admin", "superadmin"),
+  upload.single("file"),
+  async (req, res) => {
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ error: "CSV file is required (field name: file)" });
+    }
 
-  const filePath = req.file.path;
+    const filePath = req.file.path;
+    const userGroups = {};
+    let lastUserId = null;
+    let lastUsername = null;
 
-  // { user_id: { username, entries: [] } }
-  const userGroups = {};
-  let lastUserId = null;
-  let lastUsername = null;
+    try {
+      // 1) Read & group CSV data into memory
+      await new Promise((resolve, reject) => {
+        fs.createReadStream(filePath)
+          .pipe(csv())
+          .on("data", (row) => {
+            try {
+              let user_id = (row.user_id || "").toString().trim();
+              let username = (row.username || "").toString().trim();
 
-  try {
-    // 1) Read & group CSV
-    await new Promise((resolve, reject) => {
-      fs.createReadStream(filePath)
-        .pipe(csv())
-        .on("data", (row) => {
-          try {
-            // read raw values
-            let user_id = (row.user_id || "").toString().trim();
-            let username = (row.username || "").toString().trim();
+              // Excel-style fill-down logic for merged cells
+              if (!user_id && lastUserId) {
+                user_id = lastUserId;
+                if (!username) username = lastUsername;
+              }
 
-            // if user_id empty, reuse last non-empty one (Excel-style)
-            if (!user_id && lastUserId) {
-              user_id = lastUserId;
-              if (!username) username = lastUsername;
+              if (!user_id) return;
+
+              lastUserId = user_id;
+              lastUsername = username;
+
+              const rawFootfall = row.footfall;
+              const rawConversion = row.conversion;
+
+              // Skip rows with no data
+              const hasFootfall =
+                rawFootfall !== undefined &&
+                rawFootfall !== null &&
+                String(rawFootfall).trim() !== "";
+              const hasConversion =
+                rawConversion !== undefined &&
+                rawConversion !== null &&
+                String(rawConversion).trim() !== "";
+
+              if (!hasFootfall && !hasConversion) return;
+
+              const footfall = hasFootfall ? Number(rawFootfall) || 0 : 0;
+              const conversion = hasConversion ? Number(rawConversion) || 0 : 0;
+
+              let pc = row.pc;
+              pc =
+                pc === undefined || pc === null || String(pc).trim() === ""
+                  ? null
+                  : String(pc).trim();
+
+              // Parse date using your existing helper
+              const ts = parseExcelDateToUTC(row.timestamp);
+              if (!ts) return;
+
+              if (!userGroups[user_id]) {
+                userGroups[user_id] = { username, entries: [] };
+              }
+
+              userGroups[user_id].entries.push({
+                footfall,
+                conversion,
+                pc,
+                timestamp: ts,
+              });
+            } catch (e) {
+              console.error("Row parse error:", e, row);
             }
+          })
+          .on("end", () => resolve())
+          .on("error", (err) => reject(err));
+      });
 
-            // still no user_id? skip this row
-            if (!user_id) return;
+      // 2) Write/Update data in MongoDB
+      const now = new Date();
+      const results = [];
+      let totalProcessed = 0;
 
-            lastUserId = user_id;
-            lastUsername = username;
+      for (const [user_id, group] of Object.entries(userGroups)) {
+        let userDoc = await Footfall.findOne({ user_id });
 
-            const rawFootfall = row.footfall;
-            const rawConversion = row.conversion;
+        // Create user document if not exists
+        if (!userDoc) {
+          userDoc = new Footfall({
+            username: group.username || `user-${user_id}`,
+            user_id,
+            foot_entry: [],
+          });
+        }
 
-            // If BOTH footfall & conversion are empty -> treat as "no data" row, skip
-            const hasFootfall =
-              rawFootfall !== undefined &&
-              rawFootfall !== null &&
-              String(rawFootfall).trim() !== "";
-            const hasConversion =
-              rawConversion !== undefined &&
-              rawConversion !== null &&
-              String(rawConversion).trim() !== "";
+        let userChangeCount = 0;
 
-            if (!hasFootfall && !hasConversion) {
-              // no numeric data at all → skip this row
-              return;
-            }
+        group.entries.forEach((newEntry) => {
+          // Prevent future dates
+          if (newEntry.timestamp > now) return;
 
-            const footfall = hasFootfall ? Number(rawFootfall) || 0 : 0;
-            const conversion = hasConversion ? Number(rawConversion) || 0 : 0;
+          // FIND EXISTING ENTRY BY DATE
+          // We use getTime() to compare the primitive numeric value of the date
+          const existingIndex = userDoc.foot_entry.findIndex(
+            (e) => e.timestamp.getTime() === newEntry.timestamp.getTime(),
+          );
 
-            // pc as nullable string
-            let pc = row.pc;
-            if (pc === undefined || pc === null || String(pc).trim() === "") {
-              pc = null;
-            } else {
-              pc = String(pc).trim();
-            }
-
-            const ts = parseExcelDateToUTC(row.timestamp);
-            if (!ts) return; // bad / missing date → skip
-
-            if (!userGroups[user_id]) {
-              userGroups[user_id] = {
-                username,
-                entries: [],
-              };
-            }
-
-            userGroups[user_id].entries.push({
-              footfall,
-              conversion,
-              pc,
-              timestamp: ts,
+          if (existingIndex !== -1) {
+            // UPDATE: Update existing values for this date
+            userDoc.foot_entry[existingIndex].footfall = newEntry.footfall;
+            userDoc.foot_entry[existingIndex].conversion = newEntry.conversion;
+            userDoc.foot_entry[existingIndex].pc = newEntry.pc;
+          } else {
+            // INSERT: Add new entry
+            userDoc.foot_entry.push({
+              footfall: newEntry.footfall,
+              conversion: newEntry.conversion,
+              pc: newEntry.pc,
+              timestamp: newEntry.timestamp,
             });
-          } catch (e) {
-            console.error("Row parse error:", e, row);
           }
-        })
-        .on("end", () => resolve())
-        .on("error", (err) => reject(err));
-    });
+          userChangeCount++;
+        });
 
-    // 2) Write grouped data into Mongo
-    const now = new Date();
-    const results = [];
-    let totalImported = 0;
+        // Optional: Keep entries sorted by date for better Frontend performance
+        userDoc.foot_entry.sort(
+          (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+        );
 
-    for (const [user_id, group] of Object.entries(userGroups)) {
-      let userDoc = await Footfall.findOne({ user_id });
+        await userDoc.save();
+        totalProcessed += userChangeCount;
 
-      // create document if it doesn't exist
-      if (!userDoc) {
-        userDoc = new Footfall({
-          username: group.username || `user-${user_id}`,
+        results.push({
           user_id,
-          foot_entry: [],
+          username: userDoc.username,
+          processedCount: userChangeCount,
+          totalEntries: userDoc.foot_entry.length,
         });
       }
 
-      let importedForUser = 0;
+      // 3) Cleanup temp file
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
 
-      group.entries.forEach((entry) => {
-        // prevent future timestamps
-        if (entry.timestamp > now) return;
-
-        userDoc.foot_entry.push({
-          footfall: entry.footfall,
-          conversion: entry.conversion,
-          pc: entry.pc,
-          timestamp: entry.timestamp,
-        });
-
-        importedForUser++;
+      return res.status(200).json({
+        message: "CSV processed successfully",
+        totalProcessed,
+        usersProcessed: results.length,
+        results,
       });
-
-      await userDoc.save();
-
-      totalImported += importedForUser;
-
-      results.push({
-        user_id,
-        username: userDoc.username,
-        imported: importedForUser,
-        totalFootEntries: userDoc.foot_entry.length,
-      });
+    } catch (err) {
+      console.error("CSV import error:", err);
+      // Cleanup on failure
+      if (req.file && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      return res
+        .status(500)
+        .json({ error: "Internal server error during import" });
     }
-
-    // 3) Cleanup temp file
-    fs.unlink(filePath, () => {});
-
-    return res.status(200).json({
-      message: "CSV imported successfully",
-      totalImported,
-      usersProcessed: results.length,
-      results,
-    });
-  } catch (err) {
-    console.error("CSV import error:", err);
-    fs.unlink(filePath, () => {});
-    return res.status(500).json({ error: "Server error during import" });
-  }
-});
+  },
+);
 
 module.exports = router;

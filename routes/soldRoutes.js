@@ -6,6 +6,7 @@ const fs = require("fs");
 
 const Sold = require("../models/soldSchema");
 const { verifyToken } = require("../middleware/jwt");
+const authorizeRoles = require("../middleware/checkRoles");
 
 // Create uploads folder if not exists
 const uploadPath = path.join("uploads", "sold");
@@ -28,9 +29,6 @@ const upload = multer({ storage });
 // POST - Create Sold Entry
 router.post("/save", verifyToken, upload.any(), async (req, res) => {
   try {
-    // console.log("REQ.BODY:", req.body);
-    // console.log("REQ.FILES:", req.files);
-
     const { full_name, mobile, email, birthday, anniversary, address } =
       req.body;
 
@@ -77,16 +75,21 @@ router.post("/save", verifyToken, upload.any(), async (req, res) => {
 // GET - All Sold Entries
 router.get("/get", verifyToken, async (req, res) => {
   try {
-    const customers = await Sold.find(req.query).sort({
-      createdAt: -1,
-    });
+    const { full_name } = req.query;
+    let query = {};
 
-    if (!customers.length) {
-      return res.status(404).json({ message: "No sold customers found" });
+    // Anyone can now search for any staff member's sold items
+    if (full_name) {
+      // Using regex for a flexible search (case-insensitive)
+      query.full_name = { $regex: full_name, $options: "i" };
     }
-    res.status(200).json(customers);
+
+    const soldItems = await Sold.find(query).sort({ createdAt: -1 }).lean();
+
+    // Standard practice: return 200 even if empty
+    res.status(200).json(soldItems);
   } catch (error) {
-    console.error(error);
+    console.error("Public Fetch Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -147,6 +150,19 @@ router.put("/update/:id", verifyToken, upload.any(), async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating sold entry:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.delete("/delete/:id", verifyToken, async (req, res) => {
+  try {
+    const customer = await Sold.findByIdAndDelete(req.params.id);
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+    res.status(200).json({ message: "Customer deleted successfully" });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });

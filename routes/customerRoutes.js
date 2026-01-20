@@ -6,7 +6,7 @@ const fs = require("fs");
 const Customer = require("../models/customerSchema");
 const Chat = require("../models/chatSchema");
 const { verifyToken } = require("../middleware/jwt");
-const AuthorizeRoles = require("../middleware/checkRoles");
+const authorizeRoles = require("../middleware/checkRoles");
 
 const getTodayDateISO = require("../utils/getTodayDate");
 
@@ -91,14 +91,14 @@ router.post(
       console.error(error);
       res.status(500).json({ message: "Server error", error: error.message });
     }
-  }
+  },
 );
 
 //get all customers
 router.get("/get", verifyToken, async (req, res) => {
   try {
     const customers = await Customer.find(req.query).sort({
-      createdAt: -1
+      createdAt: -1,
     });
     if (!customers || customers.length === 0) {
       return res.status(404).json({ message: "No customers found" });
@@ -114,7 +114,7 @@ router.get("/get", verifyToken, async (req, res) => {
 router.delete(
   "/delete/:id",
   verifyToken,
-  AuthorizeRoles("admin"),
+  authorizeRoles("admin", "superadmin"),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -150,7 +150,7 @@ router.delete(
       console.error(error);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 //update a customer
@@ -187,7 +187,7 @@ router.put(
       console.error(error);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 //get customer by name
@@ -242,7 +242,7 @@ router.get("/followup/today", async (req, res) => {
 
     const startOfTodayIst = new Date(utcMidnight.getTime() - istOffset);
     const startOfTomorrowIst = new Date(
-      startOfTodayIst.getTime() + 24 * 60 * 60 * 1000
+      startOfTodayIst.getTime() + 24 * 60 * 60 * 1000,
     );
 
     const { salesperson } = req.query;

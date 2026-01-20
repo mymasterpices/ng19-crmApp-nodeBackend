@@ -10,15 +10,18 @@ const { verifyToken, generateToken } = require("../middleware/jwt");
 //get all users
 router.get("/users", verifyToken, async (req, res) => {
   try {
-    const users = await User.find({ username: { $ne: "admin" } }).select(
-      "-password"
-    );
-    // `$ne` means "not equal to"
+    const { username } = req.query;
+    let query = {};
 
-    res.status(200).json(users);
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    res.status(500).json({ message: "Server error" });
+    if (username) {
+      // 'i' makes it case-insensitive, regex makes it a "contains" search
+      query.username = { $regex: username, $options: "i" };
+    }
+
+    const users = await User.find(query).sort({ createdAt: -1 });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -92,7 +95,7 @@ router.post("/login", async (req, res) => {
 router.delete(
   "/delete/:id",
   verifyToken,
-  authorizeRoles("admin"),
+  authorizeRoles("admin", "superadmin"),
   async (req, res) => {
     try {
       const userId = req.params.id;
@@ -103,13 +106,13 @@ router.delete(
       console.error(error);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 router.put(
   "/update/:id",
   verifyToken,
-  authorizeRoles("admin"),
+  authorizeRoles("admin", "superadmin"),
   async (req, res) => {
     try {
       const userId = req.params.id;
@@ -129,7 +132,7 @@ router.put(
       console.error(error);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 router.get("/profile", verifyToken, async (req, res) => {
@@ -163,11 +166,11 @@ router.patch("/update-password", verifyToken, async (req, res) => {
   }
 });
 
-//change user status by admin
+//change user status by super admin or admin
 router.patch(
   "/status",
   verifyToken,
-  authorizeRoles("admin"),
+    authorizeRoles("admin", "superadmin"),
   async (req, res) => {
     try {
       const { status, id } = req.body;
@@ -181,14 +184,14 @@ router.patch(
       console.error(err);
       res.status(500).json({ error: "Server error" });
     }
-  }
+  },
 );
 
 //change user password by
 router.patch(
   "/password",
   verifyToken,
-  authorizeRoles("admin"),
+  authorizeRoles("admin", "superadmin"),
   async (req, res) => {
     try {
       const { password, userid } = req.body;
@@ -203,7 +206,7 @@ router.patch(
       console.error(err);
       res.status(500).json({ error: "Server error" });
     }
-  }
+  },
 );
 
 module.exports = router;
