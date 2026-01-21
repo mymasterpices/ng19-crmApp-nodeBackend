@@ -94,18 +94,36 @@ router.post(
   },
 );
 
-//get all customers
+// get all customers
 router.get("/get", verifyToken, async (req, res) => {
   try {
-    const customers = await Customer.find(req.query).sort({
+    // 1. Match the key sent from Angular ('name', 'salesperson', 'status')
+    const { name, salesperson, status } = req.query;
+    let query = {};
+
+    // 2. Build the query dynamically
+    if (name) {
+      // Matches the 'username' or 'full_name' field in your DB
+      query.name = { $regex: name, $options: "i" };
+    }
+
+    if (salesperson) {
+      query.salesperson = { $regex: salesperson, $options: "i" };
+    }
+
+    if (status) {
+      query.status = status; // Exact match for status (Open, Cold, etc.)
+    }
+
+    const customers = await Customer.find(query).sort({
       createdAt: -1,
     });
-    if (!customers || customers.length === 0) {
-      return res.status(404).json({ message: "No customers found" });
-    }
+
+    // 3. Best Practice: Return 200 with an empty array if no results
+    // This allows the Angular table to show "No customers found" gracefully
     res.status(200).json(customers);
   } catch (error) {
-    console.error(error);
+    console.error("Backend Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
