@@ -75,10 +75,13 @@ router.post("/save", verifyToken, upload.any(), async (req, res) => {
 // GET - All Sold Entries
 router.get("/get", verifyToken, async (req, res) => {
   try {
-    const { full_name } = req.query;
+    const { full_name, sales_staff } = req.query;
     let query = {};
 
     // Anyone can now search for any staff member's sold items
+    if (sales_staff) {
+      query.sales_staff = sales_staff;
+    }
     if (full_name) {
       // Using regex for a flexible search (case-insensitive)
       query.full_name = { $regex: full_name, $options: "i" };
