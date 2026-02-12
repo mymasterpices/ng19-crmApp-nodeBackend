@@ -34,6 +34,12 @@ const VideoRoutes = require("./routes/videosRoutes");
 const SharedLink = require("./routes/shareLinkRoutes");
 const favList = require("./routes/favoriteListRoutes");
 const FootfallRoutes = require("./routes/footfallRoutes");
+// Orders routes
+const categoryRoutes = require("./routes/orders/categoryRoutes");
+const salespersonRoutes = require("./routes/orders/salespersonRoutes");
+const statusRoutes = require("./routes/orders/statusRoutes");
+const karigarRoutes = require("./routes/orders/karigarRoutes");
+const ordersRoutes = require("./routes/orders/ordersRoutes");
 
 app.use("/api/auth", AuthRoutes);
 app.use("/api/customers", CustomerRoutes);
@@ -44,6 +50,12 @@ app.use("/api/videos", VideoRoutes);
 app.use("/api/videos/shared", SharedLink);
 app.use("/api/videos/favorite", favList);
 app.use("/api/footfall", FootfallRoutes);
+// Orders routes
+app.use("/api/orders/category", categoryRoutes);
+app.use("/api/orders/salesperson", salespersonRoutes);
+app.use("/api/orders/status", statusRoutes);
+app.use("/api/orders/karigar", karigarRoutes);
+app.use("/api/orders", ordersRoutes);
 
 // Wildcard route to serve Angular app
 app.get("/*splat", async (req, res) => {
