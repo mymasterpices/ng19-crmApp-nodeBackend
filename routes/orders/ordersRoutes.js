@@ -25,34 +25,43 @@ const upload = multer({ storage });
 
 router.post(
   "/create",
-  verifyToken, // 1. Verify user first
-  upload.single("productImage"), // 2. Match the key from Angular FormData
+  verifyToken,
+  upload.single("productImage"),
   async (req, res) => {
     try {
-      // Check if file exists
       if (!req.file) {
         return res.status(400).json({ message: "Please upload an image file" });
       }
 
-      const counter = await Counter.findOneAndUpdate(
-        { id: "orderId" },
-        { $inc: { seq: 1 } },
-        { new: true, upsert: true }, // Create if doesn't exist
-      );
+      // 1. Find the LATEST order by sorting orderNumber descending
+      const lastOrder = await JewelryOrder.findOne({}, { orderNumber: 1 })
+        .sort({ orderNumber: -1 })
+        .limit(1);
 
-      // 2. Format the sequence (e.g., 2 -> "RK0002")
-      // padStart(4, '0') ensures it is always 4 digits
-      const sequenceNumber = counter.seq.toString().padStart(4, "0");
+      let nextSeq = 1;
+
+      if (lastOrder && lastOrder.orderNumber) {
+        // Extract number from "RK0005" -> 5
+        const lastNumber = parseInt(
+          lastOrder.orderNumber.replace("RK", ""),
+          10,
+        );
+        if (!isNaN(lastNumber)) {
+          nextSeq = lastNumber + 1;
+        }
+      }
+
+      // 2. Format the sequence (e.g., 6 -> "RK0006")
+      const sequenceNumber = nextSeq.toString().padStart(4, "0");
       const customOrderId = `RK${sequenceNumber}`;
 
-      // 3. Create the order with the generated ID
+      // 3. Create the order
       const newOrder = new JewelryOrder({
         ...req.body,
-        orderNumber: customOrderId, // Add this to your Schema first!
-        imageProduct: req.file.path.replace(/\\/g, "/"), // Stores the path string in DB
+        orderNumber: customOrderId,
+        imageProduct: req.file.path.replace(/\\/g, "/"),
       });
 
-      // 4. Save the instance
       const savedOrder = await newOrder.save();
 
       res.status(201).json({
@@ -61,14 +70,19 @@ router.post(
         data: savedOrder,
       });
     } catch (error) {
-      // 5. Cleanup: If DB save fails, delete the uploaded file so you don't waste storage
       if (req.file) fs.unlinkSync(req.file.path);
 
+      // Check for MongoDB Duplicate Key Error (Code 11000)
+      if (error.code === 11000) {
+        return res
+          .status(409)
+          .json({ message: "Order number conflict. Please try again." });
+      }
+
       console.error("Error creating order:", error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+      res
+        .status(500)
+        .json({ message: "Internal server error", error: error.message });
     }
   },
 );
