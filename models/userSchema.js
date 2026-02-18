@@ -18,7 +18,7 @@ const userSchema = new moongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["superadmin", "admin", "user"],
+      enum: ["superadmin", "admin", "user", "karigar"],
       default: "user",
     },
   },

@@ -8,7 +8,7 @@ const bcrypt = require("bcryptjs");
 const { verifyToken, generateToken } = require("../middleware/jwt");
 
 //get all users
-router.get("/users", verifyToken, async (req, res) => {
+router.get("/users", verifyToken, async (req, res) => { 
   try {
     const { username } = req.query;
     let query = {};

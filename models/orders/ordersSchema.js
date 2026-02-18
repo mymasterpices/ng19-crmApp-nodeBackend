@@ -21,7 +21,7 @@ const JewelryOrderSchema = new mongoose.Schema({
   remarks: { type: String },
   status: {
     type: String,
-    enum: ["hold", "issued", "received", "cancelled", "dispatched"],
+    enum: ["hold", "issued", "received", "cancelled", "dispatched", "WIP"],
     lowercase: true,
     default: "issued",
   },

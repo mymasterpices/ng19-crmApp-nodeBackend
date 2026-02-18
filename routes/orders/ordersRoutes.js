@@ -91,7 +91,8 @@ router.post(
 router.get("/get", verifyToken, async (req, res) => {
   try {
     // 1. Destructure search terms from query
-    const { orderNumber, customer, party, salesperson, status, id } = req.query;
+    const { orderNumber, customer, party, salesperson, status, id, karigari } =
+      req.query;
 
     let query = {};
 
@@ -110,6 +111,9 @@ router.get("/get", verifyToken, async (req, res) => {
     }
     if (status) {
       query.status = { $regex: status, $options: "i" };
+    }
+    if (karigari) {
+      query.karigari = { $regex: karigari, $options: "i" };
     }
     if (id) {
       query._id = id; // Exact match for ID

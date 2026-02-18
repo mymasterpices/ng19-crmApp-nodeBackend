@@ -4,21 +4,16 @@ const { verifyToken } = require("../../middleware/jwt");
 const { authorizeRoles } = require("../../middleware/checkRoles");
 
 // Create a new OrderStatus
-router.post(
-  "/create",
-  verifyToken,
-
-  async (req, res) => {
-    try {
-      const { name } = req.body;
-      const newOrderStatus = new OrderStatus({ name });
-      await newOrderStatus.save();
-      res.status(201).json(newOrderStatus);
-    } catch (error) {
-      res.status(500).json({ message: "Error creating OrderStatus", error });
-    }
-  },
-);
+router.post("/create", verifyToken, async (req, res) => {
+  try {
+    const { name } = req.body;
+    const newOrderStatus = new OrderStatus({ name });
+    await newOrderStatus.save();
+    res.status(201).json(newOrderStatus);
+  } catch (error) {
+    res.status(500).json({ message: "Error creating OrderStatus", error });
+  }
+});
 
 // Get all categories
 router.get("/get", async (req, res) => {
