@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const customerSchema = new mongoose.Schema(
   {
+    userId: {
+      type: String,
+      require: true,
+    },
     name: {
       type: String,
       required: true,
@@ -37,6 +41,10 @@ const customerSchema = new mongoose.Schema(
       enum: ["High", "Low", "Neutral"],
       default: "Neutral",
     },
+    newcustomer: {
+      type: Boolean,
+      default: false,
+    },
     conversation: {
       type: String,
       default: "",
@@ -48,7 +56,7 @@ const customerSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Customer", customerSchema);

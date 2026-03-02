@@ -73,7 +73,36 @@ router.post(
   },
 );
 
-// GET all users with foot entries
+// GET all users with footfall entries
+// router.get(
+//   "/get",
+//   verifyToken,
+//   authorizeRoles("admin", "superadmin"),
+//   async (req, res) => {
+//     try {
+//       // 1. Extract username from query parameters
+//       const { username } = req.query;
+
+//       // 2. Base Query: Always require status to be active
+//       let mongoQuery = { status: "active" };
+
+//       // 3. Optional Search: If username is provided, add it to the query
+//       if (username && username.trim() !== "") {
+//         mongoQuery.username = { $regex: username.trim(), $options: "i" };
+//       }
+
+//       // 4. Execute: Find users matching the criteria
+//       // We remove .select("-foot_entry") as you requested earlier to keep all data
+//       const users = await Footfall.find(mongoQuery).sort({ createdAt: -1 });
+
+//       return res.status(200).json(users);
+//     } catch (err) {
+//       console.error("Error fetching active users:", err);
+//       return res.status(500).json({ error: "Server error" });
+//     }
+//   }
+// );
+
 router.get(
   "/get",
   verifyToken,

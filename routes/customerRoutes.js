@@ -27,7 +27,7 @@ router.post(
   "/save",
   upload.single("productImage"),
   verifyToken,
-  async (req, res) => {
+async (req, res) => {
     try {
       const {
         name,
@@ -39,6 +39,8 @@ router.post(
         seriousness,
         conversation,
         salesperson,
+        userId,
+        newcustomer,
       } = req.body;
       const firstChatCo = req.body.conversation;
 
@@ -65,6 +67,8 @@ router.post(
         seriousness,
         conversation,
         salesperson,
+        userId,
+        newcustomer,
         productImage: `uploads/${req.file.filename}`,
       });
       const savedCustomer = await newCustomer.save();
@@ -94,36 +98,50 @@ router.post(
   },
 );
 
-// get all customers
 router.get("/get", verifyToken, async (req, res) => {
   try {
-    // 1. Match the key sent from Angular ('name', 'salesperson', 'status')
-    const { name, salesperson, status } = req.query;
+    const filters = req.query;
     let query = {};
 
-    // 2. Build the query dynamically
-    if (name) {
-      // Matches the 'username' or 'full_name' field in your DB
-      query.name = { $regex: name, $options: "i" };
-    }
+    // List of keys that should NOT be treated as filters (pagination, etc.)
+    const excludedFields = ["sort", "page", "limit"];
 
-    if (salesperson) {
-      query.salesperson = { $regex: salesperson, $options: "i" };
-    }
+    Object.keys(filters).forEach((key) => {
+      if (!excludedFields.includes(key) && filters[key]) {
+        // 1. Date Range Handling (if keys are startDate/endDate)
+        if (key === "startDate" || key === "endDate") {
+          if (!query.createdAt) query.createdAt = {};
+          if (key === "startDate")
+            query.createdAt.$gte = new Date(
+              new Date(filters[key]).setHours(0, 0, 0, 0),
+            );
+          if (key === "endDate")
+            query.createdAt.$lte = new Date(
+              new Date(filters[key]).setHours(23, 59, 59, 999),
+            );
+        }
 
-    if (status) {
-      query.status = status; // Exact match for status (Open, Cold, etc.)
-    }
+        // 2. Boolean Handling (for newcustomer)
+        else if (filters[key] === "true" || filters[key] === "false") {
+          query[key] = filters[key] === "true";
+        }
 
-    const customers = await Customer.find(query).sort({
-      createdAt: -1,
+        // 3. String Regex Handling (for name, mobile, productName, etc.)
+        else if (typeof filters[key] === "string" && filters[key].length > 0) {
+          query[key] = { $regex: filters[key], $options: "i" };
+        }
+
+        // 4. Direct Match (for numbers or exact IDs)
+        else {
+          query[key] = filters[key];
+        }
+      }
     });
 
-    // 3. Best Practice: Return 200 with an empty array if no results
-    // This allows the Angular table to show "No customers found" gracefully
+    const customers = await Customer.find(query).sort({ createdAt: -1 });
     res.status(200).json(customers);
   } catch (error) {
-    console.error("Backend Error:", error);
+    console.error("Dynamic Filter Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
