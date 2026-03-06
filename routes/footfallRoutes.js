@@ -74,50 +74,61 @@ router.post(
 );
 
 // GET all users with footfall entries
-// router.get(
-//   "/get",
-//   verifyToken,
-//   authorizeRoles("admin", "superadmin"),
-//   async (req, res) => {
-//     try {
-//       // 1. Extract username from query parameters
-//       const { username } = req.query;
-
-//       // 2. Base Query: Always require status to be active
-//       let mongoQuery = { status: "active" };
-
-//       // 3. Optional Search: If username is provided, add it to the query
-//       if (username && username.trim() !== "") {
-//         mongoQuery.username = { $regex: username.trim(), $options: "i" };
-//       }
-
-//       // 4. Execute: Find users matching the criteria
-//       // We remove .select("-foot_entry") as you requested earlier to keep all data
-//       const users = await Footfall.find(mongoQuery).sort({ createdAt: -1 });
-
-//       return res.status(200).json(users);
-//     } catch (err) {
-//       console.error("Error fetching active users:", err);
-//       return res.status(500).json({ error: "Server error" });
-//     }
-//   }
-// );
-
 router.get(
   "/get",
   verifyToken,
   authorizeRoles("admin", "superadmin"),
   async (req, res) => {
     try {
-      const query = req.query || {};
-      const users = await Footfall.find(query);
-      return res.status(200).json(users);
+      const { page = 1, limit = 20, username } = req.query;
+      // `req.query` values are strings in Express; no TS assertions allowed in .js files
+      const pageNum = parseInt(page, 10) || 1;
+      const limitNum = parseInt(limit, 10) || 20;
+
+      let mongoQuery = {};
+      // allow filtering by username or specific user_id
+      if (username && username.trim() !== "") {
+        mongoQuery.username = { $regex: username.trim(), $options: "i" };
+      }
+      if (req.query.user_id) {
+        mongoQuery.user_id = req.query.user_id;
+      }
+
+      // Get total count for paginator
+      const totalCount = await Footfall.countDocuments(mongoQuery);
+
+      // Fetch paginated data
+      const users = await Footfall.find(mongoQuery)
+        .sort({ createdAt: -1 })
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum);
+
+      return res.status(200).json({
+        data: users,
+        totalRecords: totalCount,
+      });
     } catch (err) {
       console.error("Error fetching users:", err);
       return res.status(500).json({ error: "Server error" });
     }
   },
 );
+
+// router.get(
+//   "/get",
+//   verifyToken,
+//   authorizeRoles("admin", "superadmin"),
+//   async (req, res) => {
+//     try {
+//       const query = req.query || {};
+//       const users = await Footfall.find(query);
+//       return res.status(200).json(users);
+//     } catch (err) {
+//       console.error("Error fetching users:", err);
+//       return res.status(500).json({ error: "Server error" });
+//     }
+//   },
+// );
 
 //Update the footfall data for a user
 router.patch(
