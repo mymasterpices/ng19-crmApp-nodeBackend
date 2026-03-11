@@ -42,7 +42,7 @@ const customerSchema = new mongoose.Schema(
       default: "Neutral",
     },
     newcustomer: {
-      type: Boolean,
+      type: String,
       default: false,
     },
     conversation: {

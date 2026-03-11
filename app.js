@@ -21,6 +21,15 @@ const serv_angular = "public/dist/browser/";
 app.use(express.static(path.join(__dirname, serv_angular))); // Serve Angular frontend
 app.use("/uploads", express.static("uploads"));
 
+// app.use(
+//   "/uploads",
+//   express.static("D:/Suraj Sharma/projects/drive-sync/images"),
+// );
+app.use(
+  "/uploads",
+  express.static("D:\\Suraj Sharma\\projects\\drive-sync\\images"),
+);
+
 // 4. Database connection
 require("./connection");
 
@@ -40,6 +49,7 @@ const salespersonRoutes = require("./routes/orders/salespersonRoutes");
 const statusRoutes = require("./routes/orders/statusRoutes");
 const karigarRoutes = require("./routes/orders/karigarRoutes");
 const ordersRoutes = require("./routes/orders/ordersRoutes");
+const imageSearchRoutes = require("./routes/imageSearch.routes");
 
 app.use("/api/auth", AuthRoutes);
 app.use("/api/customers", CustomerRoutes);
@@ -56,6 +66,8 @@ app.use("/api/orders/salesperson", salespersonRoutes);
 app.use("/api/orders/status", statusRoutes);
 app.use("/api/orders/karigar", karigarRoutes);
 app.use("/api/orders", ordersRoutes);
+
+app.use("/api/image-search", imageSearchRoutes);
 
 // Wildcard route to serve Angular app
 app.get("/*splat", async (req, res) => {
