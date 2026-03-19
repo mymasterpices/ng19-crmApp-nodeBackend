@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const SalesPerson = require("../../models/orders/salespersonSchema");
+const User = require("../../models/userSchema");
 const { verifyToken } = require("../../middleware/jwt");
 const { authorizeRoles } = require("../../middleware/checkRoles");
 
@@ -20,11 +21,23 @@ router.post(
   },
 );
 
-// Get all categories
+// Get all SalesPersons
+// router.get("/get", verifyToken, async (req, res) => {
+//   try {
+//     const salesperson = await SalesPerson.find();
+//     res.status(200).json(salesperson);
+//   } catch (error) {
+//     res.status(500).json({ message: "Error fetching categories", error });
+//   }
+// });
+
 router.get("/get", verifyToken, async (req, res) => {
   try {
-    const categories = await SalesPerson.find();
-    res.status(200).json(categories);
+    const salesperson = await User.find({
+      status: "active",
+      role: "user",
+    }).select("-password");
+    res.status(200).json(salesperson);
   } catch (error) {
     res.status(500).json({ message: "Error fetching categories", error });
   }
