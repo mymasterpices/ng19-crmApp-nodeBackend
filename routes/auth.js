@@ -8,7 +8,7 @@ const bcrypt = require("bcryptjs");
 const { verifyToken, generateToken } = require("../middleware/jwt");
 
 //get all users
-router.get("/users", verifyToken, async (req, res) => { 
+router.get("/users", verifyToken, async (req, res) => {
   try {
     const { username } = req.query;
     let query = {};
@@ -18,7 +18,9 @@ router.get("/users", verifyToken, async (req, res) => {
       query.username = { $regex: username, $options: "i" };
     }
 
-    const users = await User.find(query).sort({ createdAt: -1 });
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .select("-password");
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -170,7 +172,7 @@ router.patch("/update-password", verifyToken, async (req, res) => {
 router.patch(
   "/status",
   verifyToken,
-    authorizeRoles("admin", "superadmin"),
+  authorizeRoles("admin", "superadmin"),
   async (req, res) => {
     try {
       const { status, id } = req.body;

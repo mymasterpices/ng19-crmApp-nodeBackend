@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const Karigar = require("../../models/orders/karigarSchema");
+const User = require("../../models/userSchema");
 const { verifyToken } = require("../../middleware/jwt");
 const { authorizeRoles } = require("../../middleware/checkRoles");
 
@@ -21,12 +22,25 @@ router.post(
 );
 
 // Get all categories
+// router.get("/get", async (req, res) => {
+//   try {
+//     const karigars = await Karigar.find();
+//     res.status(200).json(karigars);
+//   } catch (error) {
+//     res.status(500).json({ message: "Error fetching categories", error });
+//   }
+// });
+
 router.get("/get", async (req, res) => {
   try {
-    const categories = await Karigar.find();
-    res.status(200).json(categories);
+    const userkarigar = await User.find({
+      status: "active",
+      role: "karigar",
+    }).select("-password");
+
+    res.status(200).json(userkarigar);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching categories", error });
+    res.status(500).json({ message: "Error fetching karigars", error });
   }
 });
 
