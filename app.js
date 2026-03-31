@@ -21,14 +21,8 @@ const serv_angular = "public/dist/browser/";
 app.use(express.static(path.join(__dirname, serv_angular))); // Serve Angular frontend
 app.use("/uploads", express.static("uploads"));
 
-// app.use(
-//   "/uploads",
-//   express.static("D:/Suraj Sharma/projects/drive-sync/images"),
-// );
-app.use(
-  "/uploads",
-  express.static("D:\\Suraj Sharma\\projects\\drive-sync\\images"),
-);
+const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "uploads");
+app.use("/uploads", express.static(uploadsDir));
 
 // 4. Database connection
 require("./connection");
