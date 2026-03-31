@@ -49,7 +49,8 @@ const salespersonRoutes = require("./routes/orders/salespersonRoutes");
 const statusRoutes = require("./routes/orders/statusRoutes");
 const karigarRoutes = require("./routes/orders/karigarRoutes");
 const ordersRoutes = require("./routes/orders/ordersRoutes");
-const imageSearchRoutes = require("./routes/imageSearch.routes");
+const imageSearchRoutes = require("./routes/imageSearchRoutes");
+const salestargetRoutes = require("./routes/salestargetRoutes");
 
 app.use("/api/auth", AuthRoutes);
 app.use("/api/customers", CustomerRoutes);
@@ -66,7 +67,8 @@ app.use("/api/orders/salesperson", salespersonRoutes);
 app.use("/api/orders/status", statusRoutes);
 app.use("/api/orders/karigar", karigarRoutes);
 app.use("/api/orders", ordersRoutes);
-
+// Sales Target routes
+app.use("/api/targets", salestargetRoutes);
 app.use("/api/image-search", imageSearchRoutes);
 
 // Wildcard route to serve Angular app

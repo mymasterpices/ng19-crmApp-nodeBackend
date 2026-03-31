@@ -40,7 +40,7 @@ const soldSchema = new mongoose.Schema(
   {
     timestamps: true,
     immutable: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Sold", soldSchema);

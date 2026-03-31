@@ -22,7 +22,7 @@ const userSchema = new moongoose.Schema(
       default: "user",
     },
   },
-  { timestamps: true },
+  { timestamps: true }, 
 );
 
 module.exports = moongoose.model("User", userSchema);
