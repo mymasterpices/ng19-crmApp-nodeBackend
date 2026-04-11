@@ -19,9 +19,17 @@ const soldSchema = new mongoose.Schema(
     anniversary: {
       type: Date,
     },
-    address: {
-      type: String,
+
+    // ✅ Swarnteras fields
+    isSwarnteras: {
+      type: Boolean,
+      default: false,
     },
+    swanrAmount: {
+      type: Number,
+      default: null,
+    },
+
     products: [
       {
         tag: { type: String, required: true },
@@ -29,8 +37,7 @@ const soldSchema = new mongoose.Schema(
         gold_wt: { type: String },
         dia_wt: { type: String },
         stn_wt: { type: String },
-        amount: { type: Number },
-        soldupload: { type: String }, // store file path or filename
+        soldupload: { type: String },
       },
     ],
     sales_staff: {

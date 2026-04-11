@@ -22,7 +22,9 @@
     "form-data": "^4.0.5",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.1",
-    "multer": "^2.0.2",
+    "multer": "^2.0.2"
+  },
+  "devDependencies": {
     "nodemon": "^3.1.14"
   }
 }

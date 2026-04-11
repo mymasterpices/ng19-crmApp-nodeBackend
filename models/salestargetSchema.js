@@ -17,7 +17,6 @@ const salesTargetSchema = new mongoose.Schema(
 
     // 2. The Goals (Targets set for the store)
     targets: {
-      sales_amount: { type: Number, default: 0 },
       gold_weight: { type: Number, default: 0 }, // Target in grams
       diamond_weight: { type: Number, default: 0 }, // Target in carats
       stone_weight: { type: Number, default: 0 }, // Target in carats/grams
@@ -25,7 +24,6 @@ const salesTargetSchema = new mongoose.Schema(
 
     // 3. The Actuals (Achievements updated via Aggregation)
     achievements: {
-      sales_amount: { type: Number, default: 0 },
       gold_weight: { type: Number, default: 0 },
       diamond_weight: { type: Number, default: 0 },
       stone_weight: { type: Number, default: 0 },

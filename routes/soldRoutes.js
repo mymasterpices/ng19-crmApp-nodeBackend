@@ -8,35 +8,35 @@ const Sold = require("../models/soldSchema");
 const { verifyToken } = require("../middleware/jwt");
 const authorizeRoles = require("../middleware/checkRoles");
 
-// Create uploads folder if not exists
 const uploadPath = path.join("uploads", "sold");
 if (!fs.existsSync(uploadPath)) {
   fs.mkdirSync(uploadPath, { recursive: true });
 }
 
-// Multer storage config
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + "-" + file.originalname;
-    cb(null, uniqueName);
-  },
+  destination: (req, file, cb) => cb(null, uploadPath),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
 const upload = multer({ storage });
 
 // POST - Create Sold Entry
 router.post("/save", verifyToken, upload.any(), async (req, res) => {
   try {
-    const { full_name, mobile, email, birthday, anniversary, address } =
-      req.body;
+    const {
+      full_name,
+      mobile,
+      email,
+      birthday,
+      anniversary,
+      address,
+      isSwarnteras, // ✅ added
+      swanrAmount, // ✅ added
+    } = req.body;
 
     let products = [];
     if (req.body.products) {
       products = JSON.parse(req.body.products);
 
-      // Attach file paths to products
       req.files.forEach((file) => {
         const match = file.fieldname.match(/^products\[(\d+)\]\[soldupload\]$/);
         if (match) {
@@ -58,6 +58,11 @@ router.post("/save", verifyToken, upload.any(), async (req, res) => {
       address,
       products,
       sales_staff: req.user.username,
+
+      // ✅ FormData sends strings — convert explicitly
+      isSwarnteras: isSwarnteras === "true",
+      swanrAmount:
+        isSwarnteras === "true" && swanrAmount ? parseFloat(swanrAmount) : null,
     });
 
     await newSold.save();
@@ -78,18 +83,14 @@ router.get("/get", verifyToken, async (req, res) => {
     const { full_name, sales_staff } = req.query;
     let query = {};
 
-    // Anyone can now search for any staff member's sold items
     if (sales_staff) {
-      query.sales_staff = sales_staff;
+      query.sales_staff = { $regex: sales_staff, $options: "i" };
     }
     if (full_name) {
-      // Using regex for a flexible search (case-insensitive)
       query.full_name = { $regex: full_name, $options: "i" };
     }
 
     const soldItems = await Sold.find(query).sort({ createdAt: -1 }).lean();
-
-    // Standard practice: return 200 even if empty
     res.status(200).json(soldItems);
   } catch (error) {
     console.error("Public Fetch Error:", error);
@@ -141,6 +142,16 @@ router.put("/update/:id", verifyToken, upload.any(), async (req, res) => {
     customer.birthday = req.body.birthday || customer.birthday;
     customer.anniversary = req.body.anniversary || customer.anniversary;
     customer.address = req.body.address || customer.address;
+
+    // ✅ Also handle isSwarnteras on update
+    if (req.body.isSwarnteras !== undefined) {
+      customer.isSwarnteras = req.body.isSwarnteras === "true";
+      customer.swanrAmount =
+        req.body.isSwarnteras === "true" && req.body.swanrAmount
+          ? parseFloat(req.body.swanrAmount)
+          : null;
+    }
+
     if (updatedProducts.length > 0) {
       customer.products = updatedProducts;
     }
@@ -157,6 +168,7 @@ router.put("/update/:id", verifyToken, upload.any(), async (req, res) => {
   }
 });
 
+// DELETE
 router.delete("/delete/:id", verifyToken, async (req, res) => {
   try {
     const customer = await Sold.findByIdAndDelete(req.params.id);
