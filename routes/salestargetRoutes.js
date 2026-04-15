@@ -122,6 +122,7 @@ router.put("/calculate/:month/:year", async (req, res) => {
       { month: month, year: year },
       {
         $set: {
+          "achievements.sales_amount": stats.totalSales,
           "achievements.gold_weight": stats.totalGold,
           "achievements.diamond_weight": stats.totalDiamond,
           "achievements.stone_weight": stats.totalStone,
