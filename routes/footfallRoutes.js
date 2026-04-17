@@ -17,7 +17,7 @@ router.post(
   authorizeRoles("admin", "superadmin"),
   async (req, res) => {
     const { userId } = req.params;
-    const { username, foot_entry, pc } = req.body;
+    const { username, user_status, foot_entry } = req.body; // ✅ no top-level pc
 
     try {
       if (
@@ -28,32 +28,33 @@ router.post(
         return res.status(400).json({ error: "foot_entry array is required" });
       }
 
-      // Check if user exists
       let user = await Footfall.findOne({ user_id: userId });
 
       if (!user) {
-        // Create new user with provided foot entries
         user = new Footfall({
           username: username || "unknown",
           user_id: userId,
+          user_status: user_status ?? null, // ✅
           foot_entry: foot_entry.map((entry) => ({
             footfall: entry.footfall,
             conversion: entry.conversion,
-            pc: pc || null,
+            pc: entry.pc ?? null, // ✅ from entry, not top-level
             timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
           })),
         });
       } else {
-        // User exists, append new foot entries
+        user.user_status = user_status ?? user.user_status; // ✅ sync on update
+
         foot_entry.forEach((entry) => {
           const entryDate = entry.timestamp
             ? new Date(entry.timestamp)
             : new Date();
+
           if (entryDate <= new Date()) {
-            // prevent future timestamps
             user.foot_entry.push({
               footfall: entry.footfall,
               conversion: entry.conversion,
+              pc: entry.pc ?? null, // ✅ fixed
               timestamp: entryDate,
             });
           }
@@ -61,11 +62,9 @@ router.post(
       }
 
       await user.save();
-
-      return res.status(201).json({
-        message: "Foot entries saved successfully",
-        user,
-      });
+      return res
+        .status(201)
+        .json({ message: "Foot entries saved successfully", user });
     } catch (err) {
       console.error("Error saving foot entries:", err);
       return res.status(500).json({ error: "Server error" });
@@ -81,12 +80,11 @@ router.get(
   async (req, res) => {
     try {
       const { page = 1, limit = 20, username } = req.query;
-      // `req.query` values are strings in Express; no TS assertions allowed in .js files
       const pageNum = parseInt(page, 10) || 1;
       const limitNum = parseInt(limit, 10) || 20;
 
       let mongoQuery = {};
-      // allow filtering by username or specific user_id
+
       if (username && username.trim() !== "") {
         mongoQuery.username = { $regex: username.trim(), $options: "i" };
       }
@@ -94,14 +92,30 @@ router.get(
         mongoQuery.user_id = req.query.user_id;
       }
 
-      // Get total count for paginator
+      // Total count for paginator
       const totalCount = await Footfall.countDocuments(mongoQuery);
 
-      // Fetch paginated data
-      const users = await Footfall.find(mongoQuery)
-        .sort({ createdAt: -1 })
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum);
+      // Fetch with explicit status ordering via aggregation
+      const users = await Footfall.aggregate([
+        { $match: mongoQuery },
+        {
+          $addFields: {
+            statusOrder: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ["$user_status", "active"] }, then: 0 },
+                  { case: { $eq: ["$user_status", "inactive"] }, then: 1 },
+                ],
+                default: 2, // null / unknown / missing → last
+              },
+            },
+          },
+        },
+        { $sort: { statusOrder: 1, createdAt: -1 } },
+        { $skip: (pageNum - 1) * limitNum },
+        { $limit: limitNum },
+        { $project: { statusOrder: 0 } }, // remove helper field from response
+      ]);
 
       return res.status(200).json({
         data: users,

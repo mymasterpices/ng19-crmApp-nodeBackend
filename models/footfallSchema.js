@@ -7,10 +7,16 @@ const footEntrySchema = new mongoose.Schema({
   timestamp: { type: Date, required: true },
 });
 
-const footfallSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  user_id: { type: String },
-  foot_entry: { type: [footEntrySchema], default: [] },
-});
+const footfallSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true, unique: true },
+    user_id: { type: String },
+    user_status: { type: String },
+    foot_entry: { type: [footEntrySchema], default: [] },
+  },
+  {
+    timestamps: true,
+  },
+);
 
 module.exports = mongoose.model("Footfall", footfallSchema);

@@ -8,7 +8,7 @@ const crypto = require("crypto");
 
 const Video = require("../models/videoSchema");
 const shareLink = require("../models/shareLinkSchema");
-const { verifyToken, generateToken } = require("../middleware/jwt");
+const { verifyToken } = require("../middleware/jwt");
 
 // Storage configuration for multer
 const storage = multer.diskStorage({
@@ -140,6 +140,7 @@ router.post(
     }
   }
 );
+
 
 // Stream video by ID
 router.get("/share-one/:id", async (req, res) => {
