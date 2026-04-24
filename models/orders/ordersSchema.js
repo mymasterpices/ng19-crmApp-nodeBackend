@@ -1,11 +1,11 @@
 const mongoose = require("mongoose");
 
-// Jewelry Order Schema
 const JewelryOrderSchema = new mongoose.Schema({
   party: { type: String, required: true },
   orderNumber: { type: String, required: true, unique: true },
   karigari: { type: String },
-  imageProduct: { type: String },
+  // ✅ Changed from String to Array of Strings
+  imageProduct: { type: [String], default: [] },
   deliveryDate: { type: Date, required: true },
   quantity: { type: Number, required: true },
   salesperson: { type: String },
