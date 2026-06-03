@@ -383,6 +383,31 @@ router.post("/", async (req, res) => {
 router.get("/all", async (req, res) => {
   try {
     const reports = await MonthlyReport.find();
+
+    res.json(reports);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Route: GET /api/reports/:user_id/:year/:month
+router.get("/:user_id/:year/:month", async (req, res) => {
+  try {
+    const { user_id, year, month } = req.params;
+
+    // Search query using path parameters
+    const reports = await MonthlyReport.find({
+      user_id: user_id,
+      year: parseInt(year),
+      month: parseInt(month),
+    });
+
+    if (reports.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No report matches this user, year, and month." });
+    }
+
     res.json(reports);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -753,7 +778,81 @@ router.get("/yearly-chart/:year", async (req, res) => {
   }
 });
 
+//update a footfall entry by entry date user id and date
+router.patch("/update/:entryId", async (req, res) => {
+  const { entryId } = req.params;
+  const { footfall, conversion } = req.body;
 
+  try {
+    const report = await MonthlyReport.findOneAndUpdate(
+      { "daily_stats._id": entryId },
+      {
+        $set: {
+          "daily_stats.$.footfall": footfall,
+          "daily_stats.$.conversion": conversion,
+        },
+      },
+      { new: true },
+    );
 
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE: Remove a footfall entry and dynamically adjust monthly totals
+router.delete("/delete/:entryId", async (req, res) => {
+  const { entryId } = req.params;
+
+  try {
+    // 1. Find the parent report using the exact same target logic as your PATCH route
+    let report = await MonthlyReport.findOne({ "daily_stats._id": entryId });
+
+    if (!report) {
+      return res.status(404).json({
+        message: "Parent monthly report containing this entry was not found.",
+      });
+    }
+
+    // 2. Locate the specific daily entry inside the array
+    const targetIdx = report.daily_stats.findIndex(
+      (stat) => stat._id && stat._id.toString() === entryId,
+    );
+
+    if (targetIdx > -1) {
+      const removedItem = report.daily_stats[targetIdx];
+
+      // 3. Deduct the removed values from your running monthly summaries
+      report.monthly_summary.total_footfall -= removedItem.footfall || 0;
+      report.monthly_summary.total_conversion -= removedItem.conversion || 0;
+
+      // Prevent structural totals from dipping below zero due to legacy data typos
+      if (report.monthly_summary.total_footfall < 0)
+        report.monthly_summary.total_footfall = 0;
+      if (report.monthly_summary.total_conversion < 0)
+        report.monthly_summary.total_conversion = 0;
+
+      // 4. Safely extract the item out of the array
+      report.daily_stats.splice(targetIdx, 1);
+
+      // 5. Commit changes to MongoDB (triggers schema validation hooks)
+      await report.save();
+    } else {
+      // Fallback if Mongoose hydration mismatches the dynamic state
+      return res
+        .status(404)
+        .json({ message: "Entry found in database but indexing failed." });
+    }
+
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 module.exports = router;

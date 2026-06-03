@@ -8,7 +8,6 @@ const multer = require("multer");
 const { verifyToken } = require("../../middleware/jwt");
 const router = express.Router();
 const fs = require("fs");
-const { warn } = require("console");
 
 const uploadDir = "uploads/orders/";
 if (!fs.existsSync(uploadDir)) {
@@ -27,7 +26,7 @@ const upload = multer({ storage });
 router.post(
   "/create",
   verifyToken,
-  upload.array("productImages", 10),
+  upload.array("imageProduct", 10),
   async (req, res) => {
     try {
       if (!req.files || req.files.length === 0) {
@@ -148,7 +147,7 @@ router.put("/update/:id", verifyToken, async (req, res) => {
 router.put(
   "/edit/:id",
   verifyToken,
-  upload.array("productImages", 10),
+  upload.array("imageProduct", 10),
   async (req, res) => {
     try {
       const orderId = req.params.id;
@@ -166,24 +165,44 @@ router.put(
       delete updateData._id;
       delete updateData.timestamp;
 
-      if (req.files && req.files.length > 0) {
-        // ✅ Delete old images from disk
-        if (existingOrder.imageProduct?.length) {
-          existingOrder.imageProduct.forEach((imgPath) => {
+      // 1. ✅ Parse the images the user decided to keep from Angular
+      let retainedImages = [];
+      if (req.body.retainedImages) {
+        try {
+          retainedImages = JSON.parse(req.body.retainedImages);
+        } catch (e) {
+          retainedImages = Array.isArray(req.body.retainedImages)
+            ? req.body.retainedImages
+            : [req.body.retainedImages];
+        }
+      } else {
+        // If nothing sent, assume they removed all previous images
+        retainedImages = [];
+      }
+
+      // 2. ✅ Delete files from local disk that are NO LONGER in the retained list
+      if (existingOrder.imageProduct?.length) {
+        existingOrder.imageProduct.forEach((imgPath) => {
+          if (!retainedImages.includes(imgPath)) {
             if (fs.existsSync(imgPath)) {
               try {
                 fs.unlinkSync(imgPath);
               } catch (e) {
-                console.error("Cleanup failed:", e);
+                console.error("Cleanup of abandoned old image failed:", e);
               }
             }
-          });
-        }
-        // ✅ Save new image paths
-        updateData.imageProduct = req.files.map((f) =>
-          f.path.replace(/\\/g, "/"),
-        );
+          }
+        });
       }
+
+      // 3. ✅ Map out newly uploaded files
+      let newImagePaths = [];
+      if (req.files && req.files.length > 0) {
+        newImagePaths = req.files.map((f) => f.path.replace(/\\/g, "/"));
+      }
+
+      // 4. ✅ MERGE: Old retained images + Newly uploaded images
+      updateData.imageProduct = [...retainedImages, ...newImagePaths];
 
       const updatedOrder = await JewelryOrder.findByIdAndUpdate(
         orderId,
@@ -191,7 +210,7 @@ router.put(
         { new: true, runValidators: true },
       );
 
-      // ✅ TRIGGER GOOGLE SHEET SYNC HERE ON EDIT ORDER
+      // ✅ TRIGGER GOOGLE SHEET SYNC
       await updateSheetRow(updatedOrder);
 
       res.status(200).json({

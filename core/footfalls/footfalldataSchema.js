@@ -1,30 +1,28 @@
 const mongoose = require("mongoose");
 
 // Sub-schema for individual daily entries
-const DailyFootfallSchema = new mongoose.Schema(
-  {
-    date: {
-      type: Date,
-      required: true,
-    },
-    footfall: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    conversion: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    pc: [
-      {
-        type: String,
-      },
-    ],
+const DailyFootfallSchema = new mongoose.Schema({
+  _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+  date: {
+    type: Date,
+    required: true,
   },
-  { _id: false },
-);
+  footfall: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  conversion: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  pc: [
+    {
+      type: String,
+    },
+  ],
+});
 
 const MonthlyReportSchema = new mongoose.Schema(
   {
