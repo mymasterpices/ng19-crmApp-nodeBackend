@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 // Schema for each diamond in a product
 const diamondSchema = new mongoose.Schema({
   diamond_colour: { type: String },
+  diamond_clarity: { type: String },
   quality_code: { type: String },
   weight: { type: Number },
   amount: { type: Number },
@@ -38,7 +39,7 @@ const productSchema = new mongoose.Schema(
   },
   {
     timestamps: true, // automatically adds createdAt and updatedAt
-  }
+  },
 );
 
 module.exports = mongoose.model("Product", productSchema);

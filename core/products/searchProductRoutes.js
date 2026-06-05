@@ -122,7 +122,7 @@ router.post("/upload-csv", upload.single("file"), (req, res) => {
           product_category: data.product_category,
           sub_category: data.sub_category,
           jewel_code: jewelCode,
-          material: data.material || data.gold_purity,
+          material: data.quality_code,
           mrp: parseNumber(data.mrp),
           gross_wt: parseNumber(data.gross_wt),
           net_wt: parseNumber(data.net_wt),
@@ -143,6 +143,7 @@ router.post("/upload-csv", upload.single("file"), (req, res) => {
       if (data.dia_wt || data.dia_amt) {
         productsMap[jewelCode].diamonds.push({
           diamond_colour: data.diamond_colour,
+          diamond_clarity: data.diamond_clarity,
           quality_code: data.quality_code,
           weight: parseNumber(data.dia_wt),
           amount: parseNumber(data.dia_amt),
