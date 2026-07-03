@@ -135,6 +135,8 @@ router.post("/upload-csv", upload.single("file"), (req, res) => {
           metal_amt: parseNumber(data.metal_amt),
           collection: data.collection,
           product_image_url: data.product_image_url,
+          pieces: data.pieces,
+          sizes: data.sizes,
           gender: data.gender,
         };
       }

@@ -36,6 +36,8 @@ const productSchema = new mongoose.Schema(
     metal_amt: { type: Number },
     making_charge: { type: Number },
     making_amt: { type: Number },
+    pieces: { type: Number },
+    sizes: { type: String },
   },
   {
     timestamps: true, // automatically adds createdAt and updatedAt
