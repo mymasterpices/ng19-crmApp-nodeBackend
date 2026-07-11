@@ -14,6 +14,7 @@ const diamondSchema = new mongoose.Schema({
 const color_stoneSchema = new mongoose.Schema({
   colour_stone_wt: { type: Number },
   colour_stone_amt: { type: Number },
+  
 });
 
 // Main product schema

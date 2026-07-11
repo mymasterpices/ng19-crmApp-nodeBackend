@@ -11,7 +11,7 @@ router.get("/:year/:month/:userId", async (req, res) => {
     const { year, month, userId } = req.params;
 
     const report = await MonthlyReport.findOne({
-      year: parseInt(year),
+      year: parseInt(year),                                                             
       month: parseInt(month),
       user_id: userId,
     });

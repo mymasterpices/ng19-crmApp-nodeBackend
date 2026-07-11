@@ -37,6 +37,23 @@ router.get("/:month/:year", async (req, res) => {
   }
 });
 
+//show all targets
+router.get("/", async (req, res) => {
+  try {
+    const targets = await SalesTarget.find().sort({ year: -1, month: -1 });
+    res.status(200).json({
+      success: true,
+      count: targets.length,
+      data: targets,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res
+      .status(500)
+      .json({ success: false, message: "Server Error, please try again" });
+  }
+});
+
 // @route   PUT /api/targets/calculate/:month/:year
 // @desc    Calculate and Update store-wide Achievements from Sold, Footfall, and Orders
 router.put("/calculate/:month/:year", async (req, res) => {
