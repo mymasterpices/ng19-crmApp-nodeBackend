@@ -49,6 +49,109 @@ function detectDelimiter(filePath) {
   return detectedDelimiter;
 }
 
+// ---------------------- CSV UPLOAD ----------------------
+router.post("/upload-csv", upload.single("file"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "No file uploaded" });
+  }
+
+  const delimiter = detectDelimiter(req.file.path);
+  const productsMap = {};
+  let lastJewelCode = null;
+  let rowCount = 0;
+
+  const parseNumber = (val) => {
+    if (val === null || val === undefined || val === "") return undefined;
+    const cleaned = String(val).replace(/,/g, "");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? undefined : num;
+  };
+
+  fs.createReadStream(req.file.path, { encoding: "utf8" })
+    .pipe(
+      csv({
+        separator: delimiter,
+        skipEmptyLines: true,
+        trim: true,
+        mapHeaders: ({ header }) =>
+          header.trim().toLowerCase().replace(/\s+/g, "_"),
+      }),
+    )
+    .on("data", (data) => {
+      rowCount++;
+
+      let jewelCode = data.jewel_code ? data.jewel_code.trim() : lastJewelCode;
+      if (!jewelCode) return;
+      lastJewelCode = jewelCode;
+
+      // Initialize Product if it doesn't exist
+      if (!productsMap[jewelCode]) {
+        productsMap[jewelCode] = {
+          product_category: data.product_category,
+          sub_category: data.sub_category,
+          quality_code: data.quality_code,
+          jewel_code: jewelCode,
+          material: data.material,
+          mrp: parseNumber(data.mrp),
+          metal_amt: parseNumber(data.metal_amt),
+          making_charge: parseNumber(data.making_charge),
+          gross_wt: parseNumber(data.gross_wt),
+          net_wt: parseNumber(data.net_wt),
+          discount_amount: parseNumber(data.discount_amount),
+          final_price: parseNumber(data.final_price),
+          collection: data.collection,
+          product_image_url: data.product_image_url,
+          gender: data.gender,
+          making_amt: parseNumber(data.making_amt),
+          diamonds: [],
+          stones: [],
+        };
+      }
+
+      // Map Diamond Data (Matches diamondSchema)
+      if (data.dia_wt || data.dia_amt) {
+        productsMap[jewelCode].diamonds.push({
+          diamond_colour: data.diamond_colour,
+          diamond_clarity: data.diamond_clarity,
+          dia_wt: parseNumber(data.dia_wt),
+          dia_amt: parseNumber(data.dia_amt),
+          dia_size: data.dia_size,
+          diamond_shape: data.diamond_shape,
+          dia_rate: parseNumber(data.dia_rate),
+          diamond_pcs: parseNumber(data.diamond_pcs),
+        });
+      }
+
+      // Map Stone Data (Matches color_stoneSchema)
+      if (data.stone_wt || data.stone_amt) {
+        productsMap[jewelCode].stones.push({
+          stone_wt: parseNumber(data.stone_wt),
+          stone_amt: parseNumber(data.stone_amt),
+          stone_shape: data.stone_shape,
+          stone_pcs: parseNumber(data.stone_pcs),
+          stone_rate: parseNumber(data.stone_rate),
+        });
+      }
+    })
+    .on("end", async () => {
+      try {
+        const products = Object.values(productsMap);
+        await Product.deleteMany({}); // Clears existing collection
+        const inserted = await Product.insertMany(products);
+
+        fs.unlink(req.file.path, () => {}); // Cleanup file
+        res.json({ message: "Import successful", count: inserted.length });
+      } catch (error) {
+        res
+          .status(500)
+          .json({ message: "Database Error", error: error.message });
+      }
+    })
+    .on("error", (err) => {
+      res.status(500).json({ message: "Parse Error", error: err.message });
+    });
+});
+
 // ---------------------- SEARCH ----------------------
 router.post("/search", verifyToken, async (req, res) => {
   try {
@@ -64,151 +167,6 @@ router.post("/search", verifyToken, async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Something went wrong!" });
   }
-});
-
-// ---------------------- CSV UPLOAD ----------------------
-router.post("/upload-csv", upload.single("file"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "No file uploaded" });
-  }
-
-  console.log(`📁 File received: ${req.file.originalname}`);
-
-  // Detect delimiter
-  const delimiter = detectDelimiter(req.file.path);
-
-  const productsMap = {};
-  let lastJewelCode = null; // Track last product for multi-row diamonds
-  let rowCount = 0;
-  let skippedRows = 0;
-
-  fs.createReadStream(req.file.path, { encoding: "utf8" })
-    .pipe(
-      csv({
-        separator: delimiter,
-        skipEmptyLines: true,
-        trim: true,
-        mapHeaders: ({ header }) =>
-          header.trim().toLowerCase().replace(/\s+/g, "_"),
-      }),
-    )
-    .on("headers", (headers) => {
-      console.log(`📋 CSV Headers:`, headers);
-    })
-    .on("data", (data) => {
-      rowCount++;
-
-      const parseNumber = (val) => {
-        if (val === null || val === undefined || val === "") return undefined;
-        const cleaned = String(val).replace(/,/g, "");
-        const num = parseFloat(cleaned);
-        return isNaN(num) ? undefined : num;
-      };
-
-      // Use jewel_code if present, otherwise assign to lastJewelCode
-      let jewelCode = data.jewel_code ? data.jewel_code.trim() : lastJewelCode;
-      if (!jewelCode) {
-        skippedRows++;
-        if (skippedRows <= 3)
-          console.log(`⚠️ Skipped row ${rowCount} - missing jewel_code`, data);
-        return;
-      }
-
-      lastJewelCode = jewelCode; // update lastJewelCode for next rows
-
-      // Create product entry if it doesn't exist
-      if (!productsMap[jewelCode]) {
-        productsMap[jewelCode] = {
-          product_category: data.product_category,
-          sub_category: data.sub_category,
-          jewel_code: jewelCode,
-          material: data.quality_code,
-          mrp: parseNumber(data.mrp),
-          gross_wt: parseNumber(data.gross_wt),
-          net_wt: parseNumber(data.net_wt),
-          diamonds: [],
-          stones: [],
-          discount_amount: parseNumber(data.discount),
-          final_price: parseNumber(data.final_price),
-          making_charge: parseNumber(data.making_charge),
-          making_amt: parseNumber(data.making_amt),
-          metal_amt: parseNumber(data.metal_amt),
-          collection: data.collection,
-          product_image_url: data.product_image_url,
-          pieces: data.pieces,
-          sizes: data.sizes,
-          gender: data.gender,
-        };
-      }
-
-      // Add diamond info if present
-      if (data.dia_wt || data.dia_amt) {
-        productsMap[jewelCode].diamonds.push({
-          diamond_colour: data.diamond_colour,
-          diamond_clarity: data.diamond_clarity,
-          quality_code: data.quality_code,
-          weight: parseNumber(data.dia_wt),
-          amount: parseNumber(data.dia_amt),
-        });
-      }
-
-      // Add coloured stone info if present
-      if (data.colour_stone_wt || data.colour_stone_amt) {
-        productsMap[jewelCode].stones.push({
-          colour_stone_wt: parseNumber(data.colour_stone_wt),
-          colour_stone_amt: parseNumber(data.colour_stone_amt),
-        });
-      }
-    })
-    .on("end", async () => {
-      try {
-        const products = Object.values(productsMap);
-        console.log(
-          `📊 Processed ${rowCount} rows, valid products: ${products.length}`,
-        );
-
-        if (products.length === 0) {
-          fs.unlink(req.file.path, () => {});
-          return res.status(400).json({ message: "No valid products found" });
-        }
-
-        // Replace the collection (optional)
-        await Product.deleteMany({});
-        const inserted = await Product.insertMany(products);
-
-        fs.unlink(req.file.path, (err) => {
-          if (err) console.warn("⚠️ Failed to delete uploaded file:", err);
-        });
-
-        console.log(`✅ Successfully imported ${inserted.length} products`);
-
-        res.json({
-          message: "Product collection replaced successfully",
-          insertedCount: inserted.length,
-          totalRows: rowCount,
-          skippedRows: skippedRows,
-        });
-      } catch (error) {
-        console.error("❌ Error saving Product data:", error);
-
-        fs.unlink(req.file.path, () => {});
-
-        res.status(500).json({
-          message: "Error saving Product data",
-          error: error.message,
-        });
-      }
-    })
-    .on("error", (err) => {
-      console.error("❌ CSV parse error:", err);
-
-      if (req.file?.path) fs.unlink(req.file.path, () => {});
-
-      res.status(500).json({
-        message: "CSV parse error",
-        error: err.message,
-      });
-    });
 });
 
 module.exports = router;
