@@ -37,6 +37,7 @@ const VideoRoutes = require("./core/videos/videosRoutes");
 const SharedLink = require("./core/sharelinks/shareLinkRoutes");
 const favList = require("./core/sharelinks/favoriteListRoutes");
 const FootfallRoutes = require("./core/footfalls/footfallRoutes");
+const AIChatRoutes = require("./routes/aiChatRoutes");
 
 // Orders routes
 const categoryRoutes = require("./core/orders/categoryRoutes");
@@ -56,8 +57,6 @@ app.use("/api/videos", VideoRoutes);
 app.use("/api/videos/shared", SharedLink);
 app.use("/api/videos/favorite", favList);
 app.use("/api/footfall", FootfallRoutes);
-// app.use("/api/footfall/sheet", footfallSheet);
-// Orders routes
 app.use("/api/orders/category", categoryRoutes);
 app.use("/api/orders/status", statusRoutes);
 app.use("/api/orders/karigar", karigarRoutes);
@@ -66,6 +65,7 @@ app.use("/api/orders", ordersRoutes);
 app.use("/api/targets", salestargetRoutes);
 app.use("/api/image-search", imageSearchRoutes);
 app.use("/api/footfall/footfalldata", footfalldataRoutes);
+app.use("/api/ai-chat", AIChatRoutes);
 
 // Wildcard route to serve Angular app
 app.get("/*splat", async (req, res) => {

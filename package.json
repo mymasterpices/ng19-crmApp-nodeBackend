@@ -12,6 +12,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.5",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "axios": "^1.15.2",
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
