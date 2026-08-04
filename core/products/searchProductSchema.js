@@ -17,7 +17,7 @@ const diamondSchema = new mongoose.Schema({
 const color_stoneSchema = new mongoose.Schema({
   stone_wt: { type: Number },
   stone_amt: { type: Number },
-  stone_shape: { type: String },
+  stone_type: { type: String },
   stone_pcs: { type: Number },
   stone_rate: { type: Number },
 });

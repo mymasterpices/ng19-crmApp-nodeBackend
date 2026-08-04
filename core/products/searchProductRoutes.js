@@ -127,7 +127,7 @@ router.post("/upload-csv", upload.single("file"), (req, res) => {
         productsMap[jewelCode].stones.push({
           stone_wt: parseNumber(data.stone_wt),
           stone_amt: parseNumber(data.stone_amt),
-          stone_shape: data.stone_shape,
+          stone_type: data.stone_type,
           stone_pcs: parseNumber(data.stone_pcs),
           stone_rate: parseNumber(data.stone_rate),
         });
