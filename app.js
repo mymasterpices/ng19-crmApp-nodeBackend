@@ -4,6 +4,10 @@ const cors = require("cors");
 const fs = require("fs");
 require("dotenv").config();
 
+// near your other requires
+const { verifyToken } = require("./middleware/jwt");
+const viewerReadOnly = require("./middleware/viewerReadOnly");
+
 // 2. App setup
 const app = express();
 const port = process.env.PORT || 3000;
@@ -49,23 +53,28 @@ const salestargetRoutes = require("./core/targets/salestargetRoutes");
 const footfalldataRoutes = require("./core/footfalls/footfalldataRoutes");
 
 app.use("/api/auth", AuthRoutes);
-app.use("/api/customers", CustomerRoutes);
-app.use("/api/chat", ChatRoutes);
-app.use("/api/sold", SoldRoutes);
-app.use("/api/products", searchProductRoutes);
-app.use("/api/videos", VideoRoutes);
-app.use("/api/videos/shared", SharedLink);
-app.use("/api/videos/favorite", favList);
-app.use("/api/footfall", FootfallRoutes);
-app.use("/api/orders/category", categoryRoutes);
-app.use("/api/orders/status", statusRoutes);
-app.use("/api/orders/karigar", karigarRoutes);
-app.use("/api/orders", ordersRoutes);
-// Sales Target routes
-app.use("/api/targets", salestargetRoutes);
-app.use("/api/image-search", imageSearchRoutes);
-app.use("/api/footfall/footfalldata", footfalldataRoutes);
-app.use("/api/ai-chat", AIChatRoutes);
+
+app.use("/api/customers", verifyToken, viewerReadOnly, CustomerRoutes);
+app.use("/api/chat", verifyToken, viewerReadOnly, ChatRoutes);
+app.use("/api/sold", verifyToken, viewerReadOnly, SoldRoutes);
+app.use("/api/products", verifyToken, viewerReadOnly, searchProductRoutes);
+app.use("/api/videos", verifyToken, viewerReadOnly, VideoRoutes);
+app.use("/api/videos/shared", verifyToken, viewerReadOnly, SharedLink);
+app.use("/api/videos/favorite", verifyToken, viewerReadOnly, favList);
+app.use("/api/footfall", verifyToken, viewerReadOnly, FootfallRoutes);
+app.use("/api/orders/category", verifyToken, viewerReadOnly, categoryRoutes);
+app.use("/api/orders/status", verifyToken, viewerReadOnly, statusRoutes);
+app.use("/api/orders/karigar", verifyToken, viewerReadOnly, karigarRoutes);
+app.use("/api/orders", verifyToken, viewerReadOnly, ordersRoutes);
+app.use("/api/targets", verifyToken, viewerReadOnly, salestargetRoutes);
+app.use("/api/image-search", verifyToken, viewerReadOnly, imageSearchRoutes);
+app.use(
+  "/api/footfall/footfalldata",
+  verifyToken,
+  viewerReadOnly,
+  footfalldataRoutes,
+);
+app.use("/api/ai-chat", verifyToken, viewerReadOnly, AIChatRoutes);
 
 // Wildcard route to serve Angular app
 app.get("/*splat", async (req, res) => {

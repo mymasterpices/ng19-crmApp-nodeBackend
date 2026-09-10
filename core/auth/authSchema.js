@@ -18,11 +18,11 @@ const userSchema = new moongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["superadmin", "admin", "user", "karigar"],
+      enum: ["superadmin", "admin", "user", "karigar", "viewer"],
       default: "user",
     },
-  },
-  { timestamps: true }, 
+  },  
+  { timestamps: true },
 );
 
 module.exports = moongoose.model("User", userSchema);
