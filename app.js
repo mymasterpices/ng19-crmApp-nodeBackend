@@ -57,7 +57,7 @@ app.use("/api/auth", AuthRoutes);
 app.use("/api/customers", verifyToken, viewerReadOnly, CustomerRoutes);
 app.use("/api/chat", verifyToken, viewerReadOnly, ChatRoutes);
 app.use("/api/sold", verifyToken, viewerReadOnly, SoldRoutes);
-app.use("/api/products", verifyToken, viewerReadOnly, searchProductRoutes);
+app.use("/api/products", verifyToken, searchProductRoutes);
 app.use("/api/videos", verifyToken, viewerReadOnly, VideoRoutes);
 app.use("/api/videos/shared", verifyToken, viewerReadOnly, SharedLink);
 app.use("/api/videos/favorite", verifyToken, viewerReadOnly, favList);
