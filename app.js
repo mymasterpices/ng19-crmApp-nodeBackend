@@ -51,6 +51,7 @@ const ordersRoutes = require("./core/orders/ordersRoutes");
 const imageSearchRoutes = require("./core/similar-images/imageSearchRoutes");
 const salestargetRoutes = require("./core/targets/salestargetRoutes");
 const footfalldataRoutes = require("./core/footfalls/footfalldataRoutes");
+const FeedbackRoutes = require("./core/fedback/Feedback.routes");
 
 app.use("/api/auth", AuthRoutes);
 
@@ -75,6 +76,8 @@ app.use(
   footfalldataRoutes,
 );
 app.use("/api/ai-chat", verifyToken, viewerReadOnly, AIChatRoutes);
+
+app.use("/api/feedback", FeedbackRoutes);
 
 // Wildcard route to serve Angular app
 app.get("/*splat", async (req, res) => {
