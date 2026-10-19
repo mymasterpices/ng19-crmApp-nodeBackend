@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const MOBILE_REGEX = /^[6-9]\d{9}$/;
+
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 const feedbackSchema = new mongoose.Schema(
@@ -9,7 +9,6 @@ const feedbackSchema = new mongoose.Schema(
       type: String,
       required: [true, "Mobile number is required"],
       trim: true,
-      match: [MOBILE_REGEX, "Enter a valid 10-digit mobile number"],
       index: true,
     },
     name: { type: String, trim: true, maxlength: 100 },

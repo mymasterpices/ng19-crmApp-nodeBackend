@@ -11,8 +11,8 @@ const { google } = require("googleapis");
  *   A created_At | B updated_At | C Name | D Mobile | E Address
  *   F Date of Birth | G Date of Anniversary | H PAN No | I Rating | J Remarks
  */
-const TAB = "FeedbackForm";
-const SHEET_ID = process.env.GOOGLE_SHEET_ID;
+const TAB = "Feedback";
+const SHEET_ID = process.env.FEEDBBACK_GOOGLE_SHEET_ID;
 const MOBILE_COL = "D";
 
 let sheetsClient = null;

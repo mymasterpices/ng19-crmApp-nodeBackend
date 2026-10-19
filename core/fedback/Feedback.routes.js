@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const Feedback = require("./Feedback.model");const { syncFeedbackToSheet } = require("../../services/googleSheet.service");
+const Feedback = require("./Feedback.model");
+const { syncFeedbackToSheet } = require("../../services/googleSheet.service");
 
 const router = express.Router();
 
@@ -37,6 +38,73 @@ router.post(
     const doc = await Feedback.create(pick(req.body));
     syncFeedbackToSheet(doc, "create"); // not awaited, so the response isn't delayed
     res.status(201).json(doc);
+  }),
+);
+
+// POST /api/feedback/bulk -> import an ARRAY of records in one request
+router.post(
+  "/bulk",
+  wrap(async (req, res) => {
+    const items = Array.isArray(req.body)
+      ? req.body
+      : req.body && req.body.items;
+    if (!Array.isArray(items) || !items.length) {
+      return res
+        .status(400)
+        .json({ message: "Send a JSON array of feedback records" });
+    }
+
+    const toDate = (v) => {
+      if (!v) return null;
+      const d = new Date(v);
+      return isNaN(d) ? null : d;
+    };
+
+    const docs = [];
+    const failed = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const data = pick(items[i] || {});
+      if (data.rating !== undefined && data.rating !== null)
+        data.rating = Number(data.rating);
+
+      const doc = new Feedback(data);
+      try {
+        await doc.validate();
+      } catch (err) {
+        failed.push({
+          index: i,
+          name: items[i] && items[i].name,
+          mobile: items[i] && items[i].mobile,
+          errors: Object.fromEntries(
+            Object.entries(err.errors || {}).map(([k, v]) => [k, v.message]),
+          ),
+        });
+        continue;
+      }
+
+      const createdAt = toDate(items[i].createdAt) || new Date();
+      const updatedAt = toDate(items[i].updatedAt) || createdAt;
+      docs.push({
+        mobile: doc.mobile,
+        name: doc.name ?? null,
+        address: doc.address ?? null,
+        dob: doc.dob ?? null,
+        anniversary: doc.anniversary ?? null,
+        pan: doc.pan ?? null,
+        rating: doc.rating ?? null,
+        remarks: doc.remarks ?? null,
+        createdAt,
+        updatedAt,
+        __v: 0,
+      });
+    }
+
+    if (docs.length)
+      await Feedback.collection.insertMany(docs, { ordered: false });
+    res
+      .status(201)
+      .json({ received: items.length, inserted: docs.length, failed });
   }),
 );
 
