@@ -2,7 +2,18 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const fs = require("fs");
-require("dotenv").config();
+// invoke env file
+const dotenv = require("dotenv");
+
+// Select environment file
+const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
+
+// Load environment variables
+dotenv.config({
+  path: path.resolve(__dirname, envFile),
+});
+
+console.log(`Environment loaded: ${envFile}`);
 
 // near your other requires
 const { verifyToken } = require("./middleware/jwt");

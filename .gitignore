@@ -3,9 +3,13 @@ node_modules/
 uploads/
 # Environment files
 .env
+.env.local
+.env.*
+!.env.example
 # Angular build output
 public/
 credentials.json
 credentials2.json
+
 
 phrasal-indexer-496305-h0-76e8f7bf05cb.json
