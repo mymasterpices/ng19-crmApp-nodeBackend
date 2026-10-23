@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const Product = require("./searchProductSchema");
-const { verifyToken } = require("../../middleware/jwt");
 
 const viewerReadOnly = require("../../middleware/viewerReadOnly");
 
@@ -51,7 +50,11 @@ function detectDelimiter(filePath) {
   return detectedDelimiter;
 }
 
-// ---------------------- CSV UPLOAD ----------------------
+// ---------------------- HELPERS: QUERY ----------------------
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const exactCI = (v) => new RegExp(`^${escapeRegex(v.trim())}$`, "i");
+
+// ---------------------- CSV UPLOAD (unchanged) ----------------------
 router.post(
   "/upload-csv",
   viewerReadOnly,
@@ -161,8 +164,8 @@ router.post(
   },
 );
 
-// ---------------------- SEARCH ----------------------
-router.post("/search", verifyToken, async (req, res) => {
+// ---------------------- SEARCH (case-insensitive tag) ----------------------
+router.post("/search", async (req, res) => {
   try {
     const { jewel_code } = req.body;
 
@@ -170,8 +173,127 @@ router.post("/search", verifyToken, async (req, res) => {
       return res.status(400).json({ message: "jewel_code is required" });
     }
 
-    const products = await Product.find({ jewel_code });
+    const products = await Product.find({ jewel_code: exactCI(jewel_code) });
     res.status(200).json(products);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Something went wrong!" });
+  }
+});
+
+// ---------------------- FILTER OPTIONS (for the UI) ----------------------
+// GET /products/filters
+router.get("/filters", async (req, res) => {
+  try {
+    const clean = (arr) =>
+      [
+        ...new Set(arr.map((v) => String(v || "").trim()).filter(Boolean)),
+      ].sort();
+
+    const [
+      categories,
+      sub_categories,
+      materials,
+      genders,
+      collections,
+      stone_types,
+      hasDiamond,
+    ] = await Promise.all([
+      Product.distinct("product_category"),
+      Product.distinct("sub_category"),
+      Product.distinct("material"),
+      Product.distinct("gender"),
+      Product.distinct("collection"),
+      Product.distinct("stones.stone_type"),
+      Product.exists({ "diamonds.0": { $exists: true } }),
+    ]);
+
+    // material looks like GW18 / PL950 -> metal "GW" + purity "18"
+    const metals = new Set();
+    const purities = new Set();
+    materials.forEach((m) => {
+      const x = /^([A-Za-z]+)(\d+)$/.exec(String(m || "").trim());
+      if (x) {
+        metals.add(x[1].toUpperCase());
+        purities.add(x[2]);
+      }
+    });
+
+    res.json({
+      categories: clean(categories),
+      sub_categories: clean(sub_categories),
+      metals: [...metals].sort(),
+      purities: [...purities].sort((a, b) => a - b),
+      genders: clean(genders),
+      collections: clean(collections),
+      stone_types: clean([...(hasDiamond ? ["Diamond"] : []), ...stone_types]),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Something went wrong!" });
+  }
+});
+
+// ---------------------- GET ALL PRODUCTS (paginated + filters) ----------------------
+// GET /products?page=1&limit=12&sort=new&category=Rings&gender=Women&metal=GW&purity=18
+router.get("/", async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 12, 1), 100);
+    const {
+      category,
+      sub_category,
+      gender,
+      collection,
+      metal,
+      purity,
+      stone_type,
+      maxPrice,
+      sort,
+    } = req.query;
+
+    const filter = {};
+    if (category) filter.product_category = exactCI(category);
+    if (sub_category) filter.sub_category = exactCI(sub_category);
+    if (gender) filter.gender = exactCI(gender);
+    if (collection) filter.collection = exactCI(collection);
+
+    if (metal || purity) {
+      const m = metal ? escapeRegex(metal) : "[A-Za-z]+";
+      const p = purity ? escapeRegex(purity) : "\\d+";
+      filter.material = new RegExp(`^${m}${p}$`, "i");
+    }
+
+    if (stone_type) {
+      if (stone_type.toLowerCase() === "diamond") {
+        filter["diamonds.0"] = { $exists: true };
+      } else {
+        filter["stones.stone_type"] = exactCI(stone_type);
+      }
+    }
+
+    const max = parseFloat(maxPrice);
+    if (!isNaN(max)) filter.final_price = { $lte: max };
+
+    // _id is the tiebreaker so pages never repeat or skip items
+    const sortMap = {
+      new: { createdAt: -1, _id: -1 },
+      price_asc: { final_price: 1, _id: 1 },
+      price_desc: { final_price: -1, _id: -1 },
+    };
+
+    const [data, total] = await Promise.all([
+      Product.find(filter)
+        .sort(sortMap[sort] || sortMap.new)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    res
+      .status(200)
+      .json({ data, total, page, pages: Math.ceil(total / limit) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Something went wrong!" });
