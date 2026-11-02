@@ -33,8 +33,8 @@ const customerSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Open", "Cold", "Close", "Swarnteras"],
-      default: "open",
+      enum: ["Inquiry", "Conversation", "Negotiation", "Close"],
+      default: "Inquiry",
     },
     productImage: {
       type: String,
