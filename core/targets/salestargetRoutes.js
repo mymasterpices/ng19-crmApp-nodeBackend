@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const SalesTarget = require("./salestargetSchema");
 const Sold = require("../../core/solds/soldSchema");
-const Footfall = require("../../core/footfalls/footfallSchema");
 const mongoose = require("mongoose");
 
 // @route   POST /api/targets

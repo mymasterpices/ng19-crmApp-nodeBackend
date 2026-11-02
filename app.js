@@ -51,7 +51,6 @@ const searchProductRoutes = require("./core/products/searchProductRoutes");
 const VideoRoutes = require("./core/videos/videosRoutes");
 const SharedLink = require("./core/sharelinks/shareLinkRoutes");
 const favList = require("./core/sharelinks/favoriteListRoutes");
-const FootfallRoutes = require("./core/footfalls/footfallRoutes");
 const AIChatRoutes = require("./routes/aiChatRoutes");
 
 // Orders routes
@@ -61,7 +60,6 @@ const karigarRoutes = require("./core/karigars/karigarRoutes");
 const ordersRoutes = require("./core/orders/ordersRoutes");
 const imageSearchRoutes = require("./core/similar-images/imageSearchRoutes");
 const salestargetRoutes = require("./core/targets/salestargetRoutes");
-const footfalldataRoutes = require("./core/footfalls/footfalldataRoutes");
 const FeedbackRoutes = require("./core/fedback/Feedback.routes");
 
 app.use("/api/auth", AuthRoutes);
@@ -73,19 +71,14 @@ app.use("/api/products", verifyToken, searchProductRoutes);
 app.use("/api/videos", verifyToken, viewerReadOnly, VideoRoutes);
 app.use("/api/videos/shared", verifyToken, viewerReadOnly, SharedLink);
 app.use("/api/videos/favorite", verifyToken, viewerReadOnly, favList);
-app.use("/api/footfall", verifyToken, viewerReadOnly, FootfallRoutes);
+
 app.use("/api/orders/category", verifyToken, viewerReadOnly, categoryRoutes);
 app.use("/api/orders/status", verifyToken, viewerReadOnly, statusRoutes);
 app.use("/api/orders/karigar", verifyToken, viewerReadOnly, karigarRoutes);
 app.use("/api/orders", verifyToken, viewerReadOnly, ordersRoutes);
 app.use("/api/targets", verifyToken, viewerReadOnly, salestargetRoutes);
 app.use("/api/image-search", verifyToken, viewerReadOnly, imageSearchRoutes);
-app.use(
-  "/api/footfall/footfalldata",
-  verifyToken,
-  viewerReadOnly,
-  footfalldataRoutes,
-);
+app.use("/api/footfall/footfalldata", verifyToken, viewerReadOnly);
 app.use("/api/ai-chat", verifyToken, viewerReadOnly, AIChatRoutes);
 
 app.use("/api/feedback", FeedbackRoutes);
