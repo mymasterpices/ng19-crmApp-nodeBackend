@@ -2,20 +2,15 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const fs = require("fs");
-// invoke env file
 const dotenv = require("dotenv");
 
-// Select environment file
-const envFile = process.env.NODE_ENV === "production" ? ".env" : ".env.local";
+// 1. Environment
+const isProd = process.env.NODE_ENV === "production";
+const envFile = isProd ? ".env" : ".env.local";
 
-// Load environment variables
-dotenv.config({
-  path: path.resolve(__dirname, envFile),
-});
-
+dotenv.config({ path: path.resolve(__dirname, envFile) });
 console.log(`Environment loaded: ${envFile}`);
 
-// near your other requires
 const { verifyToken } = require("./middleware/jwt");
 const viewerReadOnly = require("./middleware/viewerReadOnly");
 
@@ -23,20 +18,26 @@ const viewerReadOnly = require("./middleware/viewerReadOnly");
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Ensure uploads directory exists
-const uploadsPath = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath);
-}
+// Single uploads directory (env override supported), created if missing
+const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "uploads");
+fs.mkdirSync(uploadsDir, { recursive: true });
 
 // 3. Middleware
 app.use(cors());
-app.use(express.json());
-const serv_angular = "public/dist/browser/";
-app.use(express.static(path.join(__dirname, serv_angular))); // Serve Angular frontend
-app.use("/uploads", express.static("uploads"));
+// 1mb: the desk's bulk sync can send up to 200 enquiries in one call
+app.use(express.json({ limit: "1mb" }));
 
-const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "uploads");
+const serv_angular = path.join(__dirname, "public/dist/browser");
+app.use(
+  express.static(serv_angular, {
+    // Angular's hashed JS/CSS can be cached long-term; index.html must always be fresh
+    maxAge: isProd ? "1y" : 0,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html"))
+        res.setHeader("Cache-Control", "no-cache");
+    },
+  }),
+);
 app.use("/uploads", express.static(uploadsDir));
 
 // 4. Database connection
@@ -62,6 +63,9 @@ const imageSearchRoutes = require("./core/similar-images/imageSearchRoutes");
 const salestargetRoutes = require("./core/targets/salestargetRoutes");
 const FeedbackRoutes = require("./core/fedback/Feedback.routes");
 
+// CRM Catalog Desk (enquiries, send logs, market rules)
+const DeskRoutes = require("./routes/desk.routes");
+
 app.use("/api/auth", AuthRoutes);
 
 app.use("/api/customers", verifyToken, viewerReadOnly, CustomerRoutes);
@@ -78,17 +82,44 @@ app.use("/api/orders/karigar", verifyToken, viewerReadOnly, karigarRoutes);
 app.use("/api/orders", verifyToken, viewerReadOnly, ordersRoutes);
 app.use("/api/targets", verifyToken, viewerReadOnly, salestargetRoutes);
 app.use("/api/image-search", verifyToken, viewerReadOnly, imageSearchRoutes);
-app.use("/api/footfall/footfalldata", verifyToken, viewerReadOnly);
 app.use("/api/ai-chat", verifyToken, viewerReadOnly, AIChatRoutes);
+app.use("/api/desk", verifyToken, viewerReadOnly, DeskRoutes);
 
 app.use("/api/feedback", FeedbackRoutes);
 
-// Wildcard route to serve Angular app
-app.get("/*splat", async (req, res) => {
-  res.sendFile(path.join(__dirname, serv_angular));
+// Unknown API paths get JSON 404 (not the Angular page)
+app.use("/api", (req, res) => {
+  res
+    .status(404)
+    .json({ message: `Not found: ${req.method} ${req.originalUrl}` });
 });
 
-// 6. Start server
+// Wildcard route: serve the Angular app for deep links / page refreshes
+app.get("/*splat", (req, res) => {
+  res.sendFile(path.join(serv_angular, "index.html"));
+});
+
+// 6. Error handler (keeps async route errors as JSON, hides details in production)
+app.use((err, req, res, next) => {
+  console.error(`[${req.method} ${req.originalUrl}]`, err);
+  if (res.headersSent) return next(err);
+  const status =
+    err.status ||
+    err.statusCode ||
+    (err.name === "ValidationError" ? 400 : 500);
+  res.status(status).json({
+    message:
+      status >= 500 && isProd
+        ? "Internal server error"
+        : err.message || "Error",
+  });
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection:", reason);
+});
+
+// 7. Start server
 app.listen(port, () => {
   console.log(`🚀 Server is running on port ${port}`);
 });
