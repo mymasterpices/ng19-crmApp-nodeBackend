@@ -87,7 +87,8 @@ function toRow(fb) {
     mobileValue(fb.mobile), // D Mobile
     safeText(fb.address), // E Address
     toSerial(fb.dob), // F Date of Birth
-    toSerial(fb.anniversary), // G Date of Anniversary
+    // toSerial(fb.anniversary), // G Date of Anniversary
+    toSerial(fb.wedding), // G Date of Wedding
     safeText(fb.pan), // H PAN No
     fb.rating ?? "", // I Rating
     safeText(fb.remarks), // J Remarks

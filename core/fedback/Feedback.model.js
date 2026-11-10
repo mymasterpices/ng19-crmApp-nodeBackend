@@ -28,7 +28,7 @@ const feedbackSchema = new mongoose.Schema(
     name: { type: String, trim: true, maxlength: 100 },
     address: { type: String, trim: true, maxlength: 500 },
     dob: { type: Date, default: null },
-    anniversary: { type: Date, default: null },
+    wedding: { type: Date, default: null },
     pan: {
       type: String,
       trim: true,
