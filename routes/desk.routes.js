@@ -48,6 +48,10 @@ const FILTER_KEYS = [
   "stone_type",
 ];
 
+// "Active" = anything that is not explicitly inactive. Using $ne (instead of
+// status: "active") also matches old documents created before the field existed.
+const ACTIVE_FILTER = { $ne: "inactive" };
+
 const str = (v, max = 500) => (typeof v === "string" ? v.slice(0, max) : "");
 const num = (v, fallback = null) =>
   Number.isFinite(Number(v)) && v !== null && v !== "" ? Number(v) : fallback;
@@ -64,7 +68,12 @@ function cleanFilters(f) {
   return out;
 }
 
-/** Whitelist + clamp. Only fields present in the body are returned, so PUT acts as a patch. */
+/**
+ * Whitelist + clamp. Only fields present in the body are returned, so PUT acts as a patch.
+ * NOTE: `status` is deliberately NOT whitelisted here, so a client (or a stale
+ * offline device) can never make an enquiry inactive or active again through
+ * PUT / POST / sync. Only DELETE and RESTORE change it.
+ */
 function cleanEnquiry(b = {}) {
   const out = {};
   if ("name" in b) out.name = str(b.name, 120).trim();
@@ -119,12 +128,20 @@ async function upsertEnquiry(req, uid, body) {
 }
 
 // ================================================================ ENQUIRIES
-// READ  — my enquiries (admin: ?all=true for everyone's)
+// READ — my enquiries (admin: ?all=true for everyone's).
+// Only ACTIVE enquiries are returned. Admin can list the inactive (deleted)
+// ones with ?status=inactive
 router.get(
   "/enquiries",
   asyncH(async (req, res) => {
     const filter =
       isAdmin(req) && req.query.all === "true" ? {} : { owner: userId(req) };
+
+    filter.status =
+      isAdmin(req) && req.query.status === "inactive"
+        ? "inactive"
+        : ACTIVE_FILTER;
+
     const list = await Enquiry.find(filter)
       .sort({ clientCreatedAt: -1 })
       .limit(500);
@@ -133,6 +150,7 @@ router.get(
 );
 
 // BULK UPSERT — first-time migration from localStorage + offline catch-up
+// (an enquiry that is soft-deleted stays deleted: deletedAt is never touched here)
 router.post(
   "/enquiries/sync",
   asyncH(async (req, res) => {
@@ -160,13 +178,14 @@ router.post(
   }),
 );
 
-// READ ONE
+// READ ONE (inactive enquiries are not returned)
 router.get(
   "/enquiries/:uid",
   asyncH(async (req, res) => {
     const doc = await Enquiry.findOne({
       owner: userId(req),
       uid: req.params.uid,
+      status: ACTIVE_FILTER,
     });
     if (!doc) return res.status(404).json({ message: "Enquiry not found" });
     res.json(doc);
@@ -194,15 +213,33 @@ router.post(
   }),
 );
 
-// DELETE — idempotent (deleting something already gone is still a success).
+// "DELETE" = set status to "inactive" (admin only). The document stays in MongoDB.
+// Idempotent: deleting something already inactive or missing is still a success.
 // Send logs are kept on purpose: they feed the spec §7 reports.
 router.delete(
   "/enquiries/:uid",
+  requireAdmin,
   asyncH(async (req, res) => {
-    const filter = { uid: req.params.uid };
-    if (!(isAdmin(req) && req.query.any === "true")) filter.owner = userId(req);
-    const r = await Enquiry.deleteOne(filter);
-    res.json({ deleted: r.deletedCount });
+    const filter = { uid: req.params.uid, status: ACTIVE_FILTER };
+    if (req.query.any !== "true") filter.owner = userId(req);
+
+    const r = await Enquiry.updateOne(filter, {
+      $set: { status: "inactive" },
+    });
+    res.json({ deleted: r.modifiedCount });
+  }),
+);
+
+// RESTORE (admin only) — set status back to "active"
+router.patch(
+  "/enquiries/:uid/restore",
+  requireAdmin,
+  asyncH(async (req, res) => {
+    const r = await Enquiry.updateOne(
+      { uid: req.params.uid, status: "inactive" },
+      { $set: { status: "active" } },
+    );
+    res.json({ restored: r.modifiedCount });
   }),
 );
 
@@ -294,11 +331,9 @@ router.put(
   asyncH(async (req, res) => {
     const rules = req.body?.rules;
     if (!rules || !MARKETS.every((m) => isRule(rules[m]))) {
-      return res
-        .status(400)
-        .json({
-          message: "rules must define cur, mult, extras for every market",
-        });
+      return res.status(400).json({
+        message: "rules must define cur, mult, extras for every market",
+      });
     }
     const clean = {};
     for (const m of MARKETS) {
